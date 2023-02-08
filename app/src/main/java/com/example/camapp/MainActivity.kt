@@ -149,7 +149,9 @@ class MainActivity : AppCompatActivity() {
                         Log.d(TAG, "Average luminosity: $luma")
 
                         // @Adet's
-                        viewBinding.luminosityValue.text = luma.toString()
+                        runOnUiThread {
+                            viewBinding.luminosityValue.text = luma.toString()
+                        }
                     })
                 }
 
@@ -162,7 +164,11 @@ class MainActivity : AppCompatActivity() {
 
                 // Bind use cases to camera
                 cameraProvider.bindToLifecycle(
-                    this, cameraSelector, preview, imageCapture)
+                    this, cameraSelector,
+                    preview,
+                    imageCapture,
+                    imageAnalyzer
+                )
 
             } catch(exc: Exception) {
                 Log.e(TAG, "Use case binding failed", exc)
