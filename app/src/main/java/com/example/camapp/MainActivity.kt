@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Base64.encodeToString
 import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -16,12 +17,21 @@ import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
+import com.example.camapp.data.Message
+import com.example.camapp.data.MessageService
 import com.example.camapp.databinding.ActivityMainBinding
+import com.google.mlkit.vision.barcode.BarcodeScanner
+import com.google.mlkit.vision.barcode.BarcodeScannerOptions
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.barcode.common.Barcode
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 typealias LumaListener = (luma: Double) -> Unit
 
@@ -34,6 +44,10 @@ class MainActivity : AppCompatActivity() {
     private var recording: Recording? = null
 
     private lateinit var cameraExecutor: ExecutorService
+
+    private lateinit var barcodeScanner: BarcodeScanner
+
+    private class MyBarcodeAnalyzer()
 
     private class LuminosityAnalyzer(private val listener: LumaListener) : ImageAnalysis.Analyzer {
 
@@ -95,36 +109,93 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Create output options object which contains file + metadata
-        val outputOptions = ImageCapture.OutputFileOptions
-            .Builder(contentResolver,
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                contentValues)
-            .build()
+//        val outputOptions = ImageCapture.OutputFileOptions
+//            .Builder(contentResolver,
+//                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+//                contentValues)
+//            .build()
 
         // Set up image capture listener, which is triggered after photo has
         // been taken
+//        imageCapture.takePicture(
+//            outputOptions,
+//            ContextCompat.getMainExecutor(this),
+//            object : ImageCapture.OnImageSavedCallback {
+//                override fun onError(exc: ImageCaptureException) {
+//                    Log.e(TAG, "Photo capture failed: ${exc.message}", exc)
+//                }
+//
+//                override fun
+//                        onImageSaved(output: ImageCapture.OutputFileResults){
+//                    val msg = "Photo capture succeeded: ${output.savedUri}"
+//                    Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
+//                    Log.d(TAG, msg)
+//                }
+//            }
+//        )
+
+        // referenced from here:
+        // https://stackoverflow.com/questions/71797696/convert-imageproxy-to-jpeg-or-png
+        // this approach seems to be promising
+        // Setting up capture listener
+        // have the image saved as ByteArrayOutputStream
+        val result = ByteArrayOutputStream()
+
+        val outputOptions = ImageCapture.OutputFileOptions
+            .Builder(result)
+            .build()
+
         imageCapture.takePicture(
             outputOptions,
             ContextCompat.getMainExecutor(this),
             object : ImageCapture.OnImageSavedCallback {
-                override fun onError(exc: ImageCaptureException) {
-                    Log.e(TAG, "Photo capture failed: ${exc.message}", exc)
+                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                    val cache = File(cacheDir.absolutePath + "/captured.png")
+                    try {
+                        val stream = FileOutputStream(cache)
+                        stream.write(result.toByteArray())
+                        upload(cache)
+                    }
+                    catch (exc: Exception) {
+                        Log.e(TAG, "onImageSaved failed: ${exc.message}", exc)
+                    }
                 }
 
-                override fun
-                        onImageSaved(output: ImageCapture.OutputFileResults){
-                    val msg = "Photo capture succeeded: ${output.savedUri}"
-                    Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
-                    Log.d(TAG, msg)
+                override fun onError(exc: ImageCaptureException) {
+                    Log.e(TAG, "onError called: ${exc.message}", exc)
                 }
             }
         )
+
+//        imageCapture.takePicture(
+//            ContextCompat.getMainExecutor(this),
+//            object : ImageCapture.OnImageCapturedCallback() {
+//                override fun onError(exception: ImageCaptureException) {
+//                    Log.e(TAG, "Photo capture failed: ${exception.message}", exception)
+//                }
+//
+//                override fun onCaptureSuccess(image: ImageProxy) {
+//                    val msg = "Photo capture succeeded: ${image.imageInfo}"
+//                    Log.d(TAG, msg)
+//                    runOnUiThread {
+//                        viewBinding.imageCapturedView.setImageURI(image.)
+//                        Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
+//                    }
+//                }
+//            }
+//        )
     }
 
     private fun captureVideo() {}
 
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+
+        // setup Barcode Detector
+        val barcodeScannerOptions = BarcodeScannerOptions.Builder()
+            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+            .build()
+        barcodeScanner = BarcodeScanning.getClient(barcodeScannerOptions)
 
         cameraProviderFuture.addListener({
             // Used to bind the lifecycle of cameras to the lifecycle owner
@@ -180,6 +251,38 @@ class MainActivity : AppCompatActivity() {
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(
             baseContext, it) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun upload(file: File) {
+        // covert the file into base64 string
+        val base64String = encodeToString(
+            file.readBytes(),
+            android.util.Base64.NO_WRAP
+        )
+        val messageService = MessageService()
+        val message = Message(
+            _id = null,
+            content = base64String,
+            __v = null
+        )
+
+        messageService.sendMessage(message) {
+            if (it != null) {
+                Toast.makeText(
+                    applicationContext,
+                    it.content,
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            else {
+                Toast.makeText(
+                    applicationContext,
+                    "No Acknowledgement",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            Log.d(TAG, "Response: $it")
+        }
     }
 
     override fun onDestroy() {
