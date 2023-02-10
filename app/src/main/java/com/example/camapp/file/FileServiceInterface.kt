@@ -9,7 +9,6 @@ import retrofit2.http.Part
 
 interface FileServiceInterface {
     @Multipart
-    @Headers("Content-Type: multipart/form-data")
     @POST("/file")
     fun uploadFile(@Part filePart: MultipartBody.Part): Call<Response>
 }

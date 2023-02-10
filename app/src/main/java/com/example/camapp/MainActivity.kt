@@ -223,12 +223,12 @@ class MainActivity : AppCompatActivity() {
                 .build()
                 .also {
                     it.setAnalyzer(cameraExecutor, LuminosityAnalyzer { luma ->
-                        Log.d(TAG, "Average luminosity: $luma")
-
-                        // @Adet's
-                        runOnUiThread {
-                            viewBinding.luminosityValue.text = luma.toString()
-                        }
+//                        Log.d(TAG, "Average luminosity: $luma")
+//
+//                        // @Adet's
+//                        runOnUiThread {
+//                            viewBinding.luminosityValue.text = luma.toString()
+//                        }
                     })
                 }
 
@@ -259,6 +259,9 @@ class MainActivity : AppCompatActivity() {
             baseContext, it) == PackageManager.PERMISSION_GRANTED
     }
 
+    // send captured photo to server for validation
+    private fun validateQrCode(file: File) {}
+
     private fun sendMessage(file: File) {
         // covert the file into base64 string
         val base64String = encodeToString(
@@ -270,7 +273,8 @@ class MainActivity : AppCompatActivity() {
             message = null,
             content = base64String,
         )
-
+        Log.d(TAG,"Request: $message")
+        Log.d(TAG,"Attempting to upload...")
         messageService.sendMessage(message) {
             if (it != null) {
                 Toast.makeText(
