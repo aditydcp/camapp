@@ -1,4 +1,4 @@
-package com.example.camapp.data
+package com.example.camapp.message
 
 data class Message(
     val message: String?,

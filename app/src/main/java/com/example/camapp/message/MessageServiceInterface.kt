@@ -1,4 +1,4 @@
-package com.example.camapp.data
+package com.example.camapp.message
 
 import retrofit2.Call
 import retrofit2.http.Body

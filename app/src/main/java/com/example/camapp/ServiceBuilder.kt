@@ -1,4 +1,4 @@
-package com.example.camapp.data
+package com.example.camapp
 
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit

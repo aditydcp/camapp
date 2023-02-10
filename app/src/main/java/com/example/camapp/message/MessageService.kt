@@ -1,6 +1,7 @@
-package com.example.camapp.data
+package com.example.camapp.message
 
 import android.util.Log
+import com.example.camapp.ServiceBuilder
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
