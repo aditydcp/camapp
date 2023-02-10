@@ -261,16 +261,15 @@ class MainActivity : AppCompatActivity() {
         )
         val messageService = MessageService()
         val message = Message(
-            _id = null,
+            message = null,
             content = base64String,
-            __v = null
         )
 
         messageService.sendMessage(message) {
             if (it != null) {
                 Toast.makeText(
                     applicationContext,
-                    it.content,
+                    it.message,
                     Toast.LENGTH_LONG
                 ).show()
             }

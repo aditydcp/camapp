@@ -7,6 +7,6 @@ import retrofit2.http.POST
 
 interface MessageServiceInterface {
     @Headers("Content-Type: application/json")
-    @POST("/patient/pemeriksaan/add") // TODO: Change endpoint URI
+    @POST("/message")
     fun sendMessage(@Body message: Message): Call<Message>
 }
