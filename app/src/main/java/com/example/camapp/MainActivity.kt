@@ -76,7 +76,7 @@ class MainActivity : AppCompatActivity() {
         viewBinding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(viewBinding.root)
 
-        // Request camera permissions
+        // Request all permissions required
         if (allPermissionsGranted()) {
             startCamera()
         } else {
@@ -306,12 +306,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val TAG = "com.example.camapp.MainActivity"
+        private const val TAG = "MainActivity"
         private const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
         private const val REQUEST_CODE_PERMISSIONS = 10
         private val REQUIRED_PERMISSIONS =
             mutableListOf (
                 Manifest.permission.CAMERA,
+                Manifest.permission.INTERNET,
                 Manifest.permission.RECORD_AUDIO
             ).apply {
                 if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
