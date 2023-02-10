@@ -17,13 +17,19 @@ import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.example.camapp.data.Message
-import com.example.camapp.data.MessageService
+import com.example.camapp.message.Message
+import com.example.camapp.message.MessageService
 import com.example.camapp.databinding.ActivityMainBinding
+import com.example.camapp.file.FileService
 import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
+import okhttp3.MediaType
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -154,7 +160,7 @@ class MainActivity : AppCompatActivity() {
                     try {
                         val stream = FileOutputStream(cache)
                         stream.write(result.toByteArray())
-                        upload(cache)
+                        uploadFile(cache)
                     }
                     catch (exc: Exception) {
                         Log.e(TAG, "onImageSaved failed: ${exc.message}", exc)
@@ -253,7 +259,7 @@ class MainActivity : AppCompatActivity() {
             baseContext, it) == PackageManager.PERMISSION_GRANTED
     }
 
-    private fun upload(file: File) {
+    private fun sendMessage(file: File) {
         // covert the file into base64 string
         val base64String = encodeToString(
             file.readBytes(),
@@ -266,6 +272,37 @@ class MainActivity : AppCompatActivity() {
         )
 
         messageService.sendMessage(message) {
+            if (it != null) {
+                Toast.makeText(
+                    applicationContext,
+                    it.message,
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            else {
+                Toast.makeText(
+                    applicationContext,
+                    "No Acknowledgement",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            Log.d(TAG, "Response: $it")
+        }
+    }
+
+    private fun uploadFile(file: File) {
+        // initialize form data
+        val name = SimpleDateFormat(FILENAME_FORMAT, Locale.US)
+            .format(System.currentTimeMillis())
+        val filePart = MultipartBody.Part.createFormData(
+            "image",
+            file.name,
+            file.asRequestBody("image/*".toMediaTypeOrNull())
+        )
+
+        val fileService = FileService()
+
+        fileService.uploadFile(filePart) {
             if (it != null) {
                 Toast.makeText(
                     applicationContext,
