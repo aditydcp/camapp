@@ -12,30 +12,17 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <LinearLayout
+    <TextView
+        android:id="@+id/scan_status"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
+        android:text="@string/scan_status_default"
+        android:textColor="@color/white"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias=".75">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/luminosity"
-            android:textColor="@color/white"/>
-
-        <TextView
-            android:id="@+id/luminosity_value"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:text="@string/default_luminosity"
-            android:textColor="@color/white"/>
-    </LinearLayout>
+        app:layout_constraintVertical_bias=".65"/>
 
     <ImageView
         android:id="@+id/image_captured_view"
@@ -45,7 +32,8 @@
         android:layout_marginTop="25dp"
         android:elevation="2dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        android:visibility="gone"/>
 
     <Button
         android:id="@+id/image_capture_button"
@@ -68,7 +56,8 @@
         android:elevation="2dp"
         android:text="@string/start_capture"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toEndOf="@id/vertical_centerline" />
+        app:layout_constraintStart_toEndOf="@id/vertical_centerline"
+        android:visibility="gone"/>
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/vertical_centerline"

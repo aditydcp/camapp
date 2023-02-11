@@ -5,4 +5,6 @@
     <string name="stop_capture">Stop Capture</string>
     <string name="luminosity">Average Luminosity :</string>
     <string name="default_luminosity">0</string>
+    <string name="scan_status_default">Nothing to scan</string>
+    <string name="scan_status_ok">Barcode detected!</string>
 </resources>
