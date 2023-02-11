@@ -263,8 +263,10 @@ class MainActivity : AppCompatActivity() {
                                 viewBinding.viewFinder.overlay.clear()
                                 viewBinding.viewFinder.setOnTouchListener {
                                         _, _ -> false } //no-op
-                                viewBinding.scanStatus.text =
-                                    getString(R.string.scan_status_default)
+                                runOnUiThread {
+                                    viewBinding.scanStatus.text =
+                                        getString(R.string.scan_status_default)
+                                }
                                 return@MlKitAnalyzer
                             }
 
@@ -284,7 +286,9 @@ class MainActivity : AppCompatActivity() {
                             viewBinding.viewFinder
                                 .overlay.add(qrCodeDrawable)
 
-                            viewBinding.scanStatus.text = getString(R.string.scan_status_ok)
+                            runOnUiThread {
+                                viewBinding.scanStatus.text = getString(R.string.scan_status_ok)
+                            }
                         }
                     )
                 }
