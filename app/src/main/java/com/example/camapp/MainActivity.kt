@@ -8,15 +8,21 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Base64.encodeToString
 import android.util.Log
+import android.view.MotionEvent
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
+import androidx.camera.core.ImageAnalysis.COORDINATE_SYSTEM_ORIGINAL
+import androidx.camera.core.ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.mlkit.vision.MlKitAnalyzer
 import androidx.camera.video.Recorder
 import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.example.camapp.QrCodeDrawable
+import com.example.camapp.QrCodeViewModel
 import com.example.camapp.message.Message
 import com.example.camapp.message.MessageService
 import com.example.camapp.databinding.ActivityMainBinding
@@ -39,43 +45,52 @@ import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-typealias LumaListener = (luma: Double) -> Unit
+//typealias LumaListener = (luma: Double) -> Unit
+//typealias BarcodeListener = (found: Boolean) -> Unit
 
 class MainActivity : AppCompatActivity() {
     private lateinit var viewBinding: ActivityMainBinding
 
     private var imageCapture: ImageCapture? = null
 
-    private var videoCapture: VideoCapture<Recorder>? = null
-    private var recording: Recording? = null
+//    private var videoCapture: VideoCapture<Recorder>? = null
+//    private var recording: Recording? = null
 
     private lateinit var cameraExecutor: ExecutorService
 
     private lateinit var barcodeScanner: BarcodeScanner
 
-    private class MyBarcodeAnalyzer()
+//    private class BarcodeAnalyzer(private val listener: BarcodeListener)
+//        : ImageAnalysis.Analyzer {
+//        constructor(
+//
+//        )
+//        override fun analyze(image: ImageProxy) {
+//            val result = scanner
+//        }
+//    }
 
-    private class LuminosityAnalyzer(private val listener: LumaListener) : ImageAnalysis.Analyzer {
-
-        private fun ByteBuffer.toByteArray(): ByteArray {
-            rewind()    // Rewind the buffer to zero
-            val data = ByteArray(remaining())
-            get(data)   // Copy the buffer into a byte array
-            return data // Return the byte array
-        }
-
-        override fun analyze(image: ImageProxy) {
-
-            val buffer = image.planes[0].buffer
-            val data = buffer.toByteArray()
-            val pixels = data.map { it.toInt() and 0xFF }
-            val luma = pixels.average()
-
-            listener(luma)
-
-            image.close()
-        }
-    }
+//    private class LuminosityAnalyzer(private val listener: LumaListener) : ImageAnalysis.Analyzer {
+//
+//        private fun ByteBuffer.toByteArray(): ByteArray {
+//            rewind()    // Rewind the buffer to zero
+//            val data = ByteArray(remaining())
+//            get(data)   // Copy the buffer into a byte array
+//            return data // Return the byte array
+//        }
+//
+//        override fun analyze(image: ImageProxy) {
+//
+//            val buffer = image.planes[0].buffer
+//            val data = buffer.toByteArray()
+//            val pixels = data.map { it.toInt() and 0xFF }
+//            val luma = pixels.average()
+//
+//            listener(luma)
+//
+//            image.close()
+//        }
+//    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -93,7 +108,7 @@ class MainActivity : AppCompatActivity() {
 
         // Set up the listeners for take photo and video capture buttons
         viewBinding.imageCaptureButton.setOnClickListener { takePhoto() }
-        viewBinding.videoCaptureButton.setOnClickListener { captureVideo() }
+//        viewBinding.videoCaptureButton.setOnClickListener { captureVideo() }
 
         cameraExecutor = Executors.newSingleThreadExecutor()
     }
@@ -104,15 +119,15 @@ class MainActivity : AppCompatActivity() {
 
         // Create time stamped name and MediaStore entry.
         // This part is used to hold the image before saving to a named file
-        val name = SimpleDateFormat(FILENAME_FORMAT, Locale.US)
-            .format(System.currentTimeMillis())
-        val contentValues = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
-            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-            if(Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
-                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/CameraX-Image")
-            }
-        }
+//        val name = SimpleDateFormat(FILENAME_FORMAT, Locale.US)
+//            .format(System.currentTimeMillis())
+//        val contentValues = ContentValues().apply {
+//            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+//            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+//            if(Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+//                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/CameraX-Image")
+//            }
+//        }
 
         // Create output options object which contains file + metadata
 //        val outputOptions = ImageCapture.OutputFileOptions
@@ -192,7 +207,7 @@ class MainActivity : AppCompatActivity() {
 //        )
     }
 
-    private fun captureVideo() {}
+//    private fun captureVideo() {}
 
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
@@ -219,17 +234,59 @@ class MainActivity : AppCompatActivity() {
                 .build()
 
             // Image Analyzer
-            val imageAnalyzer = ImageAnalysis.Builder()
-                .build()
-                .also {
-                    it.setAnalyzer(cameraExecutor, LuminosityAnalyzer { luma ->
+//            val imageAnalyzer = ImageAnalysis.Builder()
+//                .build()
+//                .also {
+//                    it.setAnalyzer(cameraExecutor, LuminosityAnalyzer { luma ->
 //                        Log.d(TAG, "Average luminosity: $luma")
 //
-//                        // @Adet's
-//                        runOnUiThread {
-//                            viewBinding.luminosityValue.text = luma.toString()
-//                        }
-                    })
+//
+//                    })
+//                }
+
+            val imageAnalyzer = ImageAnalysis.Builder()
+                .setBackpressureStrategy(STRATEGY_KEEP_ONLY_LATEST)
+                .build()
+                .also {
+                    it.setAnalyzer(
+                        cameraExecutor,
+                        MlKitAnalyzer(
+                            listOf(barcodeScanner),
+                            COORDINATE_SYSTEM_ORIGINAL,
+                            cameraExecutor
+                        ) { result: MlKitAnalyzer.Result? ->
+                            val barcodeResults = result?.getValue(barcodeScanner)
+                            if ((barcodeResults == null) ||
+                                (barcodeResults.size == 0) ||
+                                (barcodeResults.first() == null)
+                            ) {
+                                viewBinding.viewFinder.overlay.clear()
+                                viewBinding.viewFinder.setOnTouchListener {
+                                        _, _ -> false } //no-op
+                                viewBinding.scanStatus.text =
+                                    getString(R.string.scan_status_default)
+                                return@MlKitAnalyzer
+                            }
+
+                            val qrCodeViewModel = QrCodeViewModel(barcodeResults[0])
+                            val qrCodeDrawable = QrCodeDrawable(qrCodeViewModel)
+
+                            viewBinding.viewFinder
+                                .setOnTouchListener { v, event ->
+                                    if (event.action == MotionEvent.ACTION_DOWN) {
+                                        takePhoto()
+                                    }
+                                    true
+                                }
+
+                            viewBinding.viewFinder
+                                .overlay.clear()
+                            viewBinding.viewFinder
+                                .overlay.add(qrCodeDrawable)
+
+                            viewBinding.scanStatus.text = getString(R.string.scan_status_ok)
+                        }
+                    )
                 }
 
             // Select back camera as a default
@@ -259,45 +316,45 @@ class MainActivity : AppCompatActivity() {
             baseContext, it) == PackageManager.PERMISSION_GRANTED
     }
 
-    // send captured photo to server for validation
-    private fun validateQrCode(file: File) {}
-
-    private fun sendMessage(file: File) {
-        // covert the file into base64 string
-        val base64String = encodeToString(
-            file.readBytes(),
-            android.util.Base64.NO_WRAP
-        )
-        val messageService = MessageService()
-        val message = Message(
-            message = null,
-            content = base64String,
-        )
-        Log.d(TAG,"Request: $message")
-        Log.d(TAG,"Attempting to upload...")
-        messageService.sendMessage(message) {
-            if (it != null) {
-                Toast.makeText(
-                    applicationContext,
-                    it.message,
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-            else {
-                Toast.makeText(
-                    applicationContext,
-                    "No Acknowledgement",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-            Log.d(TAG, "Response: $it")
-        }
-    }
+//    // send captured photo to server for validation
+//    private fun validateQrCode(file: File) {}
+//
+//    private fun sendMessage(file: File) {
+//        // covert the file into base64 string
+//        val base64String = encodeToString(
+//            file.readBytes(),
+//            android.util.Base64.NO_WRAP
+//        )
+//        val messageService = MessageService()
+//        val message = Message(
+//            message = null,
+//            content = base64String,
+//        )
+//        Log.d(TAG,"Request: $message")
+//        Log.d(TAG,"Attempting to upload...")
+//        messageService.sendMessage(message) {
+//            if (it != null) {
+//                Toast.makeText(
+//                    applicationContext,
+//                    it.message,
+//                    Toast.LENGTH_LONG
+//                ).show()
+//            }
+//            else {
+//                Toast.makeText(
+//                    applicationContext,
+//                    "No Acknowledgement",
+//                    Toast.LENGTH_LONG
+//                ).show()
+//            }
+//            Log.d(TAG, "Response: $it")
+//        }
+//    }
 
     private fun uploadFile(file: File) {
         // initialize form data
-        val name = SimpleDateFormat(FILENAME_FORMAT, Locale.US)
-            .format(System.currentTimeMillis())
+//        val name = SimpleDateFormat(FILENAME_FORMAT, Locale.US)
+//            .format(System.currentTimeMillis())
         val filePart = MultipartBody.Part.createFormData(
             "image",
             file.name,
@@ -348,7 +405,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "MainActivity"
-        private const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
+//        private const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
         private const val REQUEST_CODE_PERMISSIONS = 10
         private val REQUIRED_PERMISSIONS =
             mutableListOf (
