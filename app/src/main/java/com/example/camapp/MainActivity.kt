@@ -1,6 +1,7 @@
 package com.example.camapp
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.os.Build
@@ -112,6 +113,7 @@ class MainActivity : AppCompatActivity() {
     }
 
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun startCamera() {
         cameraController = LifecycleCameraController(baseContext)
         previewView = viewBinding.viewFinder
@@ -136,8 +138,32 @@ class MainActivity : AppCompatActivity() {
                     (barcodeResults.first() == null)
                 ) {
                     viewBinding.viewFinder.overlay.clear()
-                    viewBinding.viewFinder.setOnTouchListener {
-                            _, _ -> false } //no-op
+                    viewBinding.viewFinder
+                        .setOnTouchListener { _, event ->
+                            if (event.action == MotionEvent.ACTION_DOWN) {
+                                val factory: MeteringPointFactory =
+                                    SurfaceOrientedMeteringPointFactory(
+                                        previewView.width.toFloat(),
+                                        previewView.height.toFloat()
+                                )
+                                val autoFocusPoint = factory.createPoint(event.x, event.y)
+                                try {
+                                    cameraController.cameraControl?.startFocusAndMetering(
+                                        FocusMeteringAction.Builder(
+                                            autoFocusPoint,
+                                            FocusMeteringAction.FLAG_AF
+                                        ).apply {
+                                            //focus only when the user tap the preview
+                                            disableAutoCancel()
+                                        }.build()
+                                    )
+                                } catch (e: CameraInfoUnavailableException) {
+                                    Log.d(TAG, "Cannot access camera " +
+                                            "when configuring auto focus", e)
+                                }
+                            }
+                            true
+                        }
                     runOnUiThread {
                         viewBinding.scanStatus.text =
                             getString(R.string.scan_status_default)
@@ -166,6 +192,9 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         )
+
+        cameraController.imageAnalysisBackpressureStrategy = STRATEGY_KEEP_ONLY_LATEST
+        cameraController.cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
         cameraController.unbind()
         cameraController.bindToLifecycle(this)
