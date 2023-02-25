@@ -19,6 +19,8 @@ import androidx.camera.mlkit.vision.MlKitAnalyzer
 import androidx.camera.video.Recorder
 import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
+import androidx.camera.view.CameraController.COORDINATE_SYSTEM_VIEW_REFERENCED
+import androidx.camera.view.LifecycleCameraController
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.camapp.QrCodeDrawable
@@ -222,6 +224,9 @@ class MainActivity : AppCompatActivity() {
             // Used to bind the lifecycle of cameras to the lifecycle owner
             val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
 
+            // Used to bind the Image Analysis Analyzer to lifecycle owner
+            val cameraController = LifecycleCameraController(baseContext)
+
             // Previewer
             val preview = Preview.Builder()
                 .build()
@@ -244,54 +249,99 @@ class MainActivity : AppCompatActivity() {
 //                    })
 //                }
 
-            val imageAnalyzer = ImageAnalysis.Builder()
-                .setBackpressureStrategy(STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-                .also {
-                    it.setAnalyzer(
-                        cameraExecutor,
-                        MlKitAnalyzer(
-                            listOf(barcodeScanner),
-                            COORDINATE_SYSTEM_ORIGINAL,
-                            cameraExecutor
-                        ) { result: MlKitAnalyzer.Result? ->
-                            val barcodeResults = result?.getValue(barcodeScanner)
-                            if ((barcodeResults == null) ||
-                                (barcodeResults.size == 0) ||
-                                (barcodeResults.first() == null)
-                            ) {
-                                viewBinding.viewFinder.overlay.clear()
-                                viewBinding.viewFinder.setOnTouchListener {
-                                        _, _ -> false } //no-op
-                                runOnUiThread {
-                                    viewBinding.scanStatus.text =
-                                        getString(R.string.scan_status_default)
-                                }
-                                return@MlKitAnalyzer
-                            }
+//            val imageAnalyzer = ImageAnalysis.Builder()
+//                .setBackpressureStrategy(STRATEGY_KEEP_ONLY_LATEST)
+//                .build()
+//                .also {
+//                    it.setAnalyzer(
+//                        cameraExecutor,
+//                        MlKitAnalyzer(
+//                            listOf(barcodeScanner),
+//                            COORDINATE_SYSTEM_ORIGINAL,
+//                            cameraExecutor
+//                        ) { result: MlKitAnalyzer.Result? ->
+//                            val barcodeResults = result?.getValue(barcodeScanner)
+//                            if ((barcodeResults == null) ||
+//                                (barcodeResults.size == 0) ||
+//                                (barcodeResults.first() == null)
+//                            ) {
+//                                viewBinding.viewFinder.overlay.clear()
+//                                viewBinding.viewFinder.setOnTouchListener {
+//                                        _, _ -> false } //no-op
+//                                runOnUiThread {
+//                                    viewBinding.scanStatus.text =
+//                                        getString(R.string.scan_status_default)
+//                                }
+//                                return@MlKitAnalyzer
+//                            }
+//
+//                            val qrCodeViewModel = QrCodeViewModel(barcodeResults[0])
+//                            val qrCodeDrawable = QrCodeDrawable(qrCodeViewModel)
+//
+//                            viewBinding.viewFinder
+//                                .setOnTouchListener { v, event ->
+//                                    if (event.action == MotionEvent.ACTION_DOWN) {
+//                                        takePhoto()
+//                                    }
+//                                    true
+//                                }
+//
+//                            viewBinding.viewFinder
+//                                .overlay.clear()
+//                            viewBinding.viewFinder
+//                                .overlay.add(qrCodeDrawable)
+//
+//                            runOnUiThread {
+//                                viewBinding.scanStatus.text = getString(R.string.scan_status_ok)
+//                            }
+//                        }
+//                    )
+//                }
 
-                            val qrCodeViewModel = QrCodeViewModel(barcodeResults[0])
-                            val qrCodeDrawable = QrCodeDrawable(qrCodeViewModel)
-
-                            viewBinding.viewFinder
-                                .setOnTouchListener { v, event ->
-                                    if (event.action == MotionEvent.ACTION_DOWN) {
-                                        takePhoto()
-                                    }
-                                    true
-                                }
-
-                            viewBinding.viewFinder
-                                .overlay.clear()
-                            viewBinding.viewFinder
-                                .overlay.add(qrCodeDrawable)
-
-                            runOnUiThread {
-                                viewBinding.scanStatus.text = getString(R.string.scan_status_ok)
-                            }
+            // Set image analysis analyzer to camera controller
+            cameraController.setImageAnalysisAnalyzer(
+                cameraExecutor,
+                MlKitAnalyzer(
+                    listOf(barcodeScanner),
+                    COORDINATE_SYSTEM_VIEW_REFERENCED,
+                    cameraExecutor
+                ) { result: MlKitAnalyzer.Result? ->
+                    val barcodeResults = result?.getValue(barcodeScanner)
+                    if ((barcodeResults == null) ||
+                        (barcodeResults.size == 0) ||
+                        (barcodeResults.first() == null)
+                    ) {
+                        viewBinding.viewFinder.overlay.clear()
+                        viewBinding.viewFinder.setOnTouchListener {
+                                _, _ -> false } //no-op
+                        runOnUiThread {
+                            viewBinding.scanStatus.text =
+                                getString(R.string.scan_status_default)
                         }
-                    )
+                        return@MlKitAnalyzer
+                    }
+
+                    val qrCodeViewModel = QrCodeViewModel(barcodeResults[0])
+                    val qrCodeDrawable = QrCodeDrawable(qrCodeViewModel)
+
+                    viewBinding.viewFinder
+                        .setOnTouchListener { v, event ->
+                            if (event.action == MotionEvent.ACTION_DOWN) {
+                                takePhoto()
+                            }
+                            true
+                        }
+
+                    viewBinding.viewFinder
+                        .overlay.clear()
+                    viewBinding.viewFinder
+                        .overlay.add(qrCodeDrawable)
+
+                    runOnUiThread {
+                        viewBinding.scanStatus.text = getString(R.string.scan_status_ok)
+                    }
                 }
+            )
 
             // Select back camera as a default
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
@@ -305,11 +355,17 @@ class MainActivity : AppCompatActivity() {
                     this, cameraSelector,
                     preview,
                     imageCapture,
-                    imageAnalyzer
+//                    imageAnalyzer
                 )
-
             } catch(exc: Exception) {
                 Log.e(TAG, "Use case binding failed", exc)
+            }
+
+            try {
+                cameraController.bindToLifecycle(this)
+                viewBinding.viewFinder.controller = cameraController
+            } catch (exc: Exception) {
+                Log.e(TAG, "Camera Controller binding failed", exc)
             }
 
         }, ContextCompat.getMainExecutor(this))
