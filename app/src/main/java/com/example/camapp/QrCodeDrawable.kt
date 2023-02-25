@@ -14,8 +14,15 @@ import com.google.mlkit.vision.barcode.common.Barcode
 class QrCodeDrawable(qrCodeViewModel: QrCodeViewModel) : Drawable() {
     private val boundingRectPaint = Paint().apply {
         style = Paint.Style.STROKE
-        color = Color.RED
+        color = Color.YELLOW
         strokeWidth = 5F
+        alpha = 200
+    }
+
+    private val edgesPaint = Paint().apply {
+        style = Paint.Style.STROKE
+        color = Color.RED
+        strokeWidth = 2.5F
         alpha = 200
     }
 
@@ -37,6 +44,31 @@ class QrCodeDrawable(qrCodeViewModel: QrCodeViewModel) : Drawable() {
 
     override fun draw(canvas: Canvas) {
         canvas.drawRect(qrCodeViewModel.boundingRect, boundingRectPaint)
+        canvas.drawPath(
+            Path().apply {
+                this.moveTo(
+                    qrCodeViewModel.corners[0].x.toFloat(),
+                    qrCodeViewModel.corners[0].y.toFloat()
+                )
+                this.lineTo(
+                    qrCodeViewModel.corners[1].x.toFloat(),
+                    qrCodeViewModel.corners[1].y.toFloat()
+                )
+                this.lineTo(
+                    qrCodeViewModel.corners[2].x.toFloat(),
+                    qrCodeViewModel.corners[2].y.toFloat()
+                )
+                this.lineTo(
+                    qrCodeViewModel.corners[3].x.toFloat(),
+                    qrCodeViewModel.corners[3].y.toFloat()
+                )
+                this.lineTo(
+                    qrCodeViewModel.corners[0].x.toFloat(),
+                    qrCodeViewModel.corners[0].y.toFloat()
+                )
+            },
+            edgesPaint
+        )
 //        canvas.drawRect(
 //            Rect(
 //                qrCodeViewModel.boundingRect.left,
@@ -55,12 +87,14 @@ class QrCodeDrawable(qrCodeViewModel: QrCodeViewModel) : Drawable() {
 
     override fun setAlpha(alpha: Int) {
         boundingRectPaint.alpha = alpha
+        edgesPaint.alpha = alpha
 //        contentRectPaint.alpha = alpha
 //        contentTextPaint.alpha = alpha
     }
 
     override fun setColorFilter(colorFiter: ColorFilter?) {
-        boundingRectPaint.colorFilter = colorFilter
+        boundingRectPaint.colorFilter = colorFiter
+        edgesPaint.colorFilter = colorFiter
 //        contentRectPaint.colorFilter = colorFilter
 //        contentTextPaint.colorFilter = colorFilter
     }

@@ -1,6 +1,7 @@
 package com.example.camapp
 
 import android.content.Intent
+import android.graphics.Point
 import android.graphics.Rect
 import android.net.Uri
 import android.view.MotionEvent
@@ -16,6 +17,7 @@ import com.google.mlkit.vision.barcode.common.Barcode
  */
 class QrCodeViewModel(barcode: Barcode) {
     var boundingRect: Rect = barcode.boundingBox!!
+    var corners: Array<Point> = barcode.cornerPoints!!
 //    var qrContent: String = ""
 //    var qrCodeTouchCallback = { v: View, e: MotionEvent -> false} //no-op
 

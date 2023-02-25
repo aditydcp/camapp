@@ -148,6 +148,7 @@ class MainActivity : AppCompatActivity() {
                                 )
                                 val autoFocusPoint = factory.createPoint(event.x, event.y)
                                 try {
+                                    Log.d(TAG, "Attempting to auto focus...")
                                     cameraController.cameraControl?.startFocusAndMetering(
                                         FocusMeteringAction.Builder(
                                             autoFocusPoint,
@@ -170,6 +171,24 @@ class MainActivity : AppCompatActivity() {
                     }
                     return@MlKitAnalyzer
                 }
+
+                // debug purpose
+                // locate barcode coordinates in view
+                val corners = barcodeResults[0].cornerPoints
+                Log.d(TAG, "Barcode locations on screen:\n" +
+                        "Top-left: (" +
+                        "${corners?.get(0)?.x}, " +
+                        "${corners?.get(0)?.y})\n" +
+                        "Top-right: (" +
+                        "${corners?.get(1)?.x}, " +
+                        "${corners?.get(1)?.y})\n" +
+                        "Bottom-left: (" +
+                        "${corners?.get(2)?.x}, " +
+                        "${corners?.get(3)?.y})\n" +
+                        "Bottom-right: (" +
+                        "${corners?.get(3)?.x}, " +
+                        "${corners?.get(3)?.y})"
+                )
 
                 val qrCodeViewModel = QrCodeViewModel(barcodeResults[0])
                 val qrCodeDrawable = QrCodeDrawable(qrCodeViewModel)
