@@ -22,7 +22,7 @@ class QrCodeDrawable(qrCodeViewModel: QrCodeViewModel) : Drawable() {
     private val edgesPaint = Paint().apply {
         style = Paint.Style.STROKE
         color = Color.RED
-        strokeWidth = 2.5F
+        strokeWidth = 1F
         alpha = 200
     }
 

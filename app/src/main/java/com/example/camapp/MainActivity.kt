@@ -4,12 +4,16 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.pm.PackageManager
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Point
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Base64.encodeToString
 import android.util.Log
 import android.view.MotionEvent
+import android.view.WindowMetrics
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
@@ -118,6 +122,14 @@ class MainActivity : AppCompatActivity() {
         cameraController = LifecycleCameraController(baseContext)
         previewView = viewBinding.viewFinder
 
+        // setup input zone boundaries
+        val display = windowManager.defaultDisplay
+        val displaySize = Point()
+        display.getSize(displaySize)
+        val boundaryDrawable = BoundaryDrawable(displaySize)
+        viewBinding.viewFinder
+            .overlay.add(boundaryDrawable)
+
         // setup Barcode Detector
         val barcodeScannerOptions = BarcodeScannerOptions.Builder()
             .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
@@ -205,6 +217,8 @@ class MainActivity : AppCompatActivity() {
                     .overlay.clear()
                 viewBinding.viewFinder
                     .overlay.add(qrCodeDrawable)
+                viewBinding.viewFinder
+                    .overlay.add(boundaryDrawable)
 
                 runOnUiThread {
                     viewBinding.scanStatus.text = getString(R.string.scan_status_ok)
