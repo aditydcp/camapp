@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Point
+import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
@@ -59,6 +60,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var barcodeScanner: BarcodeScanner
     private lateinit var previewView: PreviewView
+    private lateinit var inputOuterBoundary: Rect
+    private lateinit var inputInnerBoundary: Rect
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,6 +75,15 @@ class MainActivity : AppCompatActivity() {
             ActivityCompat.requestPermissions(
                 this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS
             )
+        }
+
+        // Set up outer boundary equals to the input boundary in layout
+        inputOuterBoundary = viewBinding.inputBoundary.clipBounds
+
+        // Set up inner boundary as an offset from outer boundary
+        inputOuterBoundary = Rect().apply {
+            this.set(inputOuterBoundary)
+            this.inset(50,50)
         }
 
         // Set up the listeners for take photo and video capture buttons
@@ -123,12 +135,19 @@ class MainActivity : AppCompatActivity() {
         previewView = viewBinding.viewFinder
 
         // setup input zone boundaries
-        val display = windowManager.defaultDisplay
-        val displaySize = Point()
-        display.getSize(displaySize)
-        val boundaryDrawable = BoundaryDrawable(displaySize)
+//        val display = windowManager.defaultDisplay
+//        val displaySize = Point()
+//        display.getSize(displaySize)
+//        val boundaryDrawable = BoundaryDrawable(displaySize)
+//        viewBinding.viewFinder
+//            .overlay.add(boundaryDrawable)
+        val outerBoundaryDrawable = BoundaryDrawable(inputOuterBoundary)
+        val innerBoundaryDrawable = BoundaryDrawable(inputInnerBoundary)
         viewBinding.viewFinder
-            .overlay.add(boundaryDrawable)
+            .overlay.apply {
+                this.add(outerBoundaryDrawable)
+                this.add(innerBoundaryDrawable)
+            }
 
         // setup Barcode Detector
         val barcodeScannerOptions = BarcodeScannerOptions.Builder()
@@ -150,6 +169,11 @@ class MainActivity : AppCompatActivity() {
                     (barcodeResults.first() == null)
                 ) {
                     viewBinding.viewFinder.overlay.clear()
+                    viewBinding.viewFinder
+                        .overlay.apply {
+                            this.add(outerBoundaryDrawable)
+                            this.add(innerBoundaryDrawable)
+                        }
                     viewBinding.viewFinder
                         .setOnTouchListener { _, event ->
                             if (event.action == MotionEvent.ACTION_DOWN) {
@@ -195,11 +219,11 @@ class MainActivity : AppCompatActivity() {
                         "${corners?.get(1)?.x}, " +
                         "${corners?.get(1)?.y})\n" +
                         "Bottom-left: (" +
-                        "${corners?.get(2)?.x}, " +
+                        "${corners?.get(3)?.x}, " +
                         "${corners?.get(3)?.y})\n" +
                         "Bottom-right: (" +
-                        "${corners?.get(3)?.x}, " +
-                        "${corners?.get(3)?.y})"
+                        "${corners?.get(2)?.x}, " +
+                        "${corners?.get(2)?.y})"
                 )
 
                 val qrCodeViewModel = QrCodeViewModel(barcodeResults[0])
@@ -216,9 +240,11 @@ class MainActivity : AppCompatActivity() {
                 viewBinding.viewFinder
                     .overlay.clear()
                 viewBinding.viewFinder
-                    .overlay.add(qrCodeDrawable)
-                viewBinding.viewFinder
-                    .overlay.add(boundaryDrawable)
+                    .overlay.apply {
+                        this.add(qrCodeDrawable)
+                        this.add(outerBoundaryDrawable)
+                        this.add(innerBoundaryDrawable)
+                    }
 
                 runOnUiThread {
                     viewBinding.scanStatus.text = getString(R.string.scan_status_ok)

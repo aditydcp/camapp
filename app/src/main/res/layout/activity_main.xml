@@ -25,6 +25,16 @@
         app:layout_constraintVertical_bias=".65"/>
 
     <ImageView
+        android:id="@+id/input_boundary"
+        android:layout_width="300dp"
+        android:layout_height="300dp"
+        android:src="@drawable/Crosshair"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
         android:id="@+id/image_captured_view"
         android:layout_width="110dp"
         android:layout_height="110dp"
@@ -64,6 +74,6 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        app:layout_constraintGuide_percent=".50" />
+        app:layout_constraintGuide_percent="0.5" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
