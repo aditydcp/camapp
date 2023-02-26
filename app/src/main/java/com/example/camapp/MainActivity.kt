@@ -2,17 +2,29 @@ package com.example.camapp
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.ContentValues
 import android.content.pm.PackageManager
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Point
 import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
+import android.util.Base64.encodeToString
 import android.util.Log
 import android.view.MotionEvent
+import android.view.WindowMetrics
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
+import androidx.camera.core.ImageAnalysis.COORDINATE_SYSTEM_ORIGINAL
 import androidx.camera.core.ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
+import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.mlkit.vision.MlKitAnalyzer
+import androidx.camera.video.Recorder
+import androidx.camera.video.Recording
+import androidx.camera.video.VideoCapture
 import androidx.camera.view.CameraController.COORDINATE_SYSTEM_VIEW_REFERENCED
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
@@ -27,12 +39,17 @@ import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
+import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.ByteBuffer
+import java.text.SimpleDateFormat
+import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -60,17 +77,9 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        // Set up outer boundary equals to the input boundary in layout
-        inputOuterBoundary = viewBinding.inputBoundary.clipBounds
-
-        // Set up inner boundary as an offset from outer boundary
-        inputOuterBoundary = Rect().apply {
-            this.set(inputOuterBoundary)
-            this.inset(50,50)
-        }
-
-        // Set up the listeners for take photo buttons
+        // Set up the listeners for take photo and video capture buttons
         viewBinding.imageCaptureButton.setOnClickListener { takePhoto() }
+//        viewBinding.videoCaptureButton.setOnClickListener { captureVideo() }
 
         cameraExecutor = Executors.newSingleThreadExecutor()
     }
@@ -123,13 +132,44 @@ class MainActivity : AppCompatActivity() {
 //        val boundaryDrawable = BoundaryDrawable(displaySize)
 //        viewBinding.viewFinder
 //            .overlay.add(boundaryDrawable)
-        val outerBoundaryDrawable = BoundaryDrawable(inputOuterBoundary)
-        val innerBoundaryDrawable = BoundaryDrawable(inputInnerBoundary)
-        viewBinding.viewFinder
-            .overlay.apply {
-                this.add(outerBoundaryDrawable)
-                this.add(innerBoundaryDrawable)
+//        // Set up outer boundary equals to the input boundary in layout
+//        inputOuterBoundary = viewBinding.inputBoundary.clipBounds
+//
+//        // Set up inner boundary as an offset from outer boundary
+//        inputInnerBoundary = Rect().apply {
+//            this.set(inputOuterBoundary)
+//            this.inset(50,50)
+//        }
+//
+//        val outerBoundaryDrawable = BoundaryDrawable(inputOuterBoundary)
+//        val innerBoundaryDrawable = BoundaryDrawable(inputInnerBoundary)
+//        viewBinding.viewFinder
+//            .overlay.apply {
+//                this.add(outerBoundaryDrawable)
+//                this.add(innerBoundaryDrawable)
+//            }
+
+        viewBinding.inputBoundary.post {
+            // Set up outer boundary equals to the input boundary in layout
+            inputOuterBoundary = Rect(
+                viewBinding.inputBoundary.left,
+                viewBinding.inputBoundary.top,
+                viewBinding.inputBoundary.right,
+                viewBinding.inputBoundary.bottom
+            )
+
+            Log.d(TAG, "Input Boundary position:\n" +
+                    "Top: ${viewBinding.inputBoundary.top}\n" +
+                    "Left: ${viewBinding.inputBoundary.left}\n" +
+                    "Right: ${viewBinding.inputBoundary.right}\n" +
+                    "Bottom: ${viewBinding.inputBoundary.bottom}")
+
+            // Set up inner boundary as an offset from outer boundary
+            inputInnerBoundary = Rect().apply {
+                this.set(inputOuterBoundary)
+                this.inset(200,200)
             }
+        }
 
         // setup Barcode Detector
         val barcodeScannerOptions = BarcodeScannerOptions.Builder()
@@ -151,11 +191,6 @@ class MainActivity : AppCompatActivity() {
                     (barcodeResults.first() == null)
                 ) {
                     viewBinding.viewFinder.overlay.clear()
-                    viewBinding.viewFinder
-                        .overlay.apply {
-                            this.add(outerBoundaryDrawable)
-                            this.add(innerBoundaryDrawable)
-                        }
                     viewBinding.viewFinder
                         .setOnTouchListener { _, event ->
                             if (event.action == MotionEvent.ACTION_DOWN) {
@@ -225,8 +260,12 @@ class MainActivity : AppCompatActivity() {
                 viewBinding.viewFinder
                     .overlay.clear()
                 viewBinding.viewFinder
+                    .overlay.add(qrCodeDrawable)
+
+                val outerBoundaryDrawable = BoundaryDrawable(inputOuterBoundary)
+                val innerBoundaryDrawable = BoundaryDrawable(inputInnerBoundary)
+                viewBinding.viewFinder
                     .overlay.apply {
-                        this.add(qrCodeDrawable)
                         this.add(outerBoundaryDrawable)
                         this.add(innerBoundaryDrawable)
                     }
