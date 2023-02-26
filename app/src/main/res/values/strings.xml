@@ -6,5 +6,6 @@
     <string name="luminosity">Average Luminosity :</string>
     <string name="default_luminosity">0</string>
     <string name="scan_status_default">Nothing to scan</string>
-    <string name="scan_status_ok">Barcode detected!</string>
+    <string name="scan_status_ok">Code detected and in acceptable range!</string>
+    <string name="scan_status_out_of_bounds">The code is out of bounds.\nPlease put the code at the center of camera.</string>
 </resources>

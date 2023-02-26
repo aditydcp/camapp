@@ -246,8 +246,14 @@ class MainActivity : AppCompatActivity() {
                         this.add(innerBoundaryDrawable)
                     }
 
-                runOnUiThread {
-                    viewBinding.scanStatus.text = getString(R.string.scan_status_ok)
+                if (isDetectedInRange(barcodeResults[0].boundingBox!!)) {
+                    runOnUiThread {
+                        viewBinding.scanStatus.text = getString(R.string.scan_status_ok)
+                    }
+                } else {
+                    runOnUiThread {
+                        viewBinding.scanStatus.text = getString(R.string.scan_status_out_of_bounds)
+                    }
                 }
             }
         )
@@ -258,6 +264,11 @@ class MainActivity : AppCompatActivity() {
         cameraController.unbind()
         cameraController.bindToLifecycle(this)
         previewView.controller = cameraController
+    }
+
+    private fun isDetectedInRange(detectedRect: Rect): Boolean {
+        return inputOuterBoundary.contains(detectedRect) &&
+                !inputInnerBoundary.contains(detectedRect)
     }
 
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
