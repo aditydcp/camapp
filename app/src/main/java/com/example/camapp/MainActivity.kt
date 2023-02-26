@@ -212,6 +212,9 @@ class MainActivity : AppCompatActivity() {
                                                 disableAutoCancel()
                                             }.build()
                                         ) as ListenableFuture<FocusMeteringResult>
+                                    autoFocusFuture.addListener({
+                                        Log.d(TAG, "Auto focus has completed")
+                                    }, cameraExecutor)
                                 } catch (e: CameraInfoUnavailableException) {
                                     Log.d(TAG, "Cannot access camera " +
                                             "when configuring auto focus", e)
@@ -280,25 +283,25 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
-                Futures.addCallback(
-                    autoFocusFuture,
-                    object : FutureCallback<FocusMeteringResult> {
-                        override fun onSuccess(result: FocusMeteringResult?) {
-                            if (result != null) {
-                                if (result.isFocusSuccessful) {
-                                    Log.d(TAG, "Auto Focus successful!")
-                                } else {
-                                    Log.d(TAG, "Auto Focus failed")
-                                }
-                            }
-                        }
-
-                        override fun onFailure(t: Throwable) {
-                            Log.e(TAG, "Auto Focus future error: ${t.message}", t)
-                        }
-                    },
-                    ContextCompat.getMainExecutor(this)
-                )
+//                Futures.addCallback(
+//                    autoFocusFuture,
+//                    object : FutureCallback<FocusMeteringResult> {
+//                        override fun onSuccess(result: FocusMeteringResult?) {
+//                            if (result != null) {
+//                                if (result.isFocusSuccessful) {
+//                                    Log.d(TAG, "Auto Focus successful!")
+//                                } else {
+//                                    Log.d(TAG, "Auto Focus failed")
+//                                }
+//                            }
+//                        }
+//
+//                        override fun onFailure(t: Throwable) {
+//                            Log.e(TAG, "Auto Focus future error: ${t.message}", t)
+//                        }
+//                    },
+//                    ContextCompat.getMainExecutor(this)
+//                )
             }
         )
 
