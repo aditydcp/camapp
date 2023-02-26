@@ -2,55 +2,37 @@ package com.example.camapp
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.content.ContentValues
 import android.content.pm.PackageManager
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Point
 import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
-import android.provider.MediaStore
-import android.util.Base64.encodeToString
 import android.util.Log
 import android.view.MotionEvent
-import android.view.WindowMetrics
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
-import androidx.camera.core.ImageAnalysis.COORDINATE_SYSTEM_ORIGINAL
 import androidx.camera.core.ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
-import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.mlkit.vision.MlKitAnalyzer
-import androidx.camera.video.Recorder
-import androidx.camera.video.Recording
-import androidx.camera.video.VideoCapture
 import androidx.camera.view.CameraController.COORDINATE_SYSTEM_VIEW_REFERENCED
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.example.camapp.QrCodeDrawable
-import com.example.camapp.QrCodeViewModel
-import com.example.camapp.message.Message
-import com.example.camapp.message.MessageService
 import com.example.camapp.databinding.ActivityMainBinding
 import com.example.camapp.file.FileService
+import com.google.common.util.concurrent.FutureCallback
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
 import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
-import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
-import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
-import java.nio.ByteBuffer
-import java.text.SimpleDateFormat
-import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -62,6 +44,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var previewView: PreviewView
     private lateinit var inputOuterBoundary: Rect
     private lateinit var inputInnerBoundary: Rect
+    private lateinit var autoFocusFuture: ListenableFuture<FocusMeteringResult>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -86,9 +69,8 @@ class MainActivity : AppCompatActivity() {
             this.inset(50,50)
         }
 
-        // Set up the listeners for take photo and video capture buttons
+        // Set up the listeners for take photo buttons
         viewBinding.imageCaptureButton.setOnClickListener { takePhoto() }
-//        viewBinding.videoCaptureButton.setOnClickListener { captureVideo() }
 
         cameraExecutor = Executors.newSingleThreadExecutor()
     }
@@ -185,15 +167,16 @@ class MainActivity : AppCompatActivity() {
                                 val autoFocusPoint = factory.createPoint(event.x, event.y)
                                 try {
                                     Log.d(TAG, "Attempting to auto focus...")
-                                    cameraController.cameraControl?.startFocusAndMetering(
-                                        FocusMeteringAction.Builder(
-                                            autoFocusPoint,
-                                            FocusMeteringAction.FLAG_AF
-                                        ).apply {
-                                            //focus only when the user tap the preview
-                                            disableAutoCancel()
-                                        }.build()
-                                    )
+                                    autoFocusFuture = cameraController
+                                        .cameraControl?.startFocusAndMetering(
+                                            FocusMeteringAction.Builder(
+                                                autoFocusPoint,
+                                                FocusMeteringAction.FLAG_AF
+                                            ).apply {
+                                                //focus only when the user tap the preview
+                                                disableAutoCancel()
+                                            }.build()
+                                        ) as ListenableFuture<FocusMeteringResult>
                                 } catch (e: CameraInfoUnavailableException) {
                                     Log.d(TAG, "Cannot access camera " +
                                             "when configuring auto focus", e)
@@ -226,12 +209,14 @@ class MainActivity : AppCompatActivity() {
                         "${corners?.get(2)?.y})"
                 )
 
+                // TODO("Consider restructure to allow singular item removal on overlay")
                 val qrCodeViewModel = QrCodeViewModel(barcodeResults[0])
                 val qrCodeDrawable = QrCodeDrawable(qrCodeViewModel)
 
                 viewBinding.viewFinder
                     .setOnTouchListener { _, event ->
                         if (event.action == MotionEvent.ACTION_DOWN) {
+                            // TODO("Need to make sure camera is focused before taking photo")
                             takePhoto()
                         }
                         true
@@ -255,6 +240,26 @@ class MainActivity : AppCompatActivity() {
                         viewBinding.scanStatus.text = getString(R.string.scan_status_out_of_bounds)
                     }
                 }
+
+                Futures.addCallback(
+                    autoFocusFuture,
+                    object : FutureCallback<FocusMeteringResult> {
+                        override fun onSuccess(result: FocusMeteringResult?) {
+                            if (result != null) {
+                                if (result.isFocusSuccessful) {
+                                    Log.d(TAG, "Auto Focus successful!")
+                                } else {
+                                    Log.d(TAG, "Auto Focus failed")
+                                }
+                            }
+                        }
+
+                        override fun onFailure(t: Throwable) {
+                            Log.e(TAG, "Auto Focus future error: ${t.message}", t)
+                        }
+                    },
+                    ContextCompat.getMainExecutor(this)
+                )
             }
         )
 
