@@ -82,6 +82,12 @@ class MainActivity : AppCompatActivity() {
 //        viewBinding.videoCaptureButton.setOnClickListener { captureVideo() }
 
         cameraExecutor = Executors.newSingleThreadExecutor()
+
+        // Set up focus listener
+        autoFocusFuture.addListener({
+            Log.d(TAG, "Auto focus has completed")
+            Log.d(TAG, "Proceeding to image capture...")
+        }, cameraExecutor)
     }
 
     private fun takePhoto() {
@@ -191,37 +197,39 @@ class MainActivity : AppCompatActivity() {
                     (barcodeResults.first() == null)
                 ) {
                     viewBinding.viewFinder.overlay.clear()
-                    viewBinding.viewFinder
-                        .setOnTouchListener { _, event ->
-                            if (event.action == MotionEvent.ACTION_DOWN) {
-                                val factory: MeteringPointFactory =
-                                    SurfaceOrientedMeteringPointFactory(
-                                        previewView.width.toFloat(),
-                                        previewView.height.toFloat()
-                                )
-                                val autoFocusPoint = factory.createPoint(event.x, event.y)
-                                try {
-                                    Log.d(TAG, "Attempting to auto focus...")
-                                    autoFocusFuture = cameraController
-                                        .cameraControl?.startFocusAndMetering(
-                                            FocusMeteringAction.Builder(
-                                                autoFocusPoint,
-                                                FocusMeteringAction.FLAG_AF
-                                            ).apply {
-                                                //focus only when the user tap the preview
-                                                disableAutoCancel()
-                                            }.build()
-                                        ) as ListenableFuture<FocusMeteringResult>
-                                    autoFocusFuture.addListener({
-                                        Log.d(TAG, "Auto focus has completed")
-                                    }, cameraExecutor)
-                                } catch (e: CameraInfoUnavailableException) {
-                                    Log.d(TAG, "Cannot access camera " +
-                                            "when configuring auto focus", e)
-                                }
-                            }
-                            true
-                        }
+                    viewBinding.viewFinder.setOnTouchListener {
+                            _, _ -> false } //no-op
+//                    viewBinding.viewFinder.setOnTouchListener {
+//                            _, event ->
+//                                if (event.action == MotionEvent.ACTION_DOWN) {
+//                                    val factory: MeteringPointFactory =
+//                                        SurfaceOrientedMeteringPointFactory(
+//                                            previewView.width.toFloat(),
+//                                            previewView.height.toFloat()
+//                                    )
+//                                    val autoFocusPoint = factory.createPoint(event.x, event.y)
+//                                    try {
+//                                        Log.d(TAG, "Attempting to auto focus...")
+//                                        autoFocusFuture = cameraController
+//                                            .cameraControl?.startFocusAndMetering(
+//                                                FocusMeteringAction.Builder(
+//                                                    autoFocusPoint,
+//                                                    FocusMeteringAction.FLAG_AF
+//                                                ).apply {
+//                                                    //focus only when the user tap the preview
+//                                                    disableAutoCancel()
+//                                                }.build()
+//                                            ) as ListenableFuture<FocusMeteringResult>
+//                                        autoFocusFuture.addListener({
+//                                            Log.d(TAG, "Auto focus has completed")
+//                                        }, cameraExecutor)
+//                                    } catch (e: CameraInfoUnavailableException) {
+//                                        Log.d(TAG, "Cannot access camera " +
+//                                                "when configuring auto focus", e)
+//                                    }
+//                                }
+//                            true
+//                    }
                     runOnUiThread {
                         viewBinding.scanStatus.text =
                             getString(R.string.scan_status_default)
@@ -254,8 +262,7 @@ class MainActivity : AppCompatActivity() {
                 viewBinding.viewFinder
                     .setOnTouchListener { _, event ->
                         if (event.action == MotionEvent.ACTION_DOWN) {
-                            // TODO("Need to make sure camera is focused before taking photo")
-                            takePhoto()
+                            startFocusing(event)
                         }
                         true
                     }
@@ -313,14 +320,37 @@ class MainActivity : AppCompatActivity() {
         previewView.controller = cameraController
     }
 
+    private fun startFocusing(event: MotionEvent) {
+        val factory: MeteringPointFactory =
+            SurfaceOrientedMeteringPointFactory(
+                previewView.width.toFloat(),
+                previewView.height.toFloat()
+            )
+        val autoFocusPoint = factory.createPoint(event.x, event.y)
+        try {
+            Log.d(TAG, "Attempting to auto focus...")
+            autoFocusFuture = cameraController
+                .cameraControl?.startFocusAndMetering(
+                    FocusMeteringAction.Builder(
+                        autoFocusPoint,
+                        FocusMeteringAction.FLAG_AF
+                    ).apply {
+                        //focus only when the user tap the preview
+                        disableAutoCancel()
+                    }.build()
+                ) as ListenableFuture<FocusMeteringResult>
+//            autoFocusFuture.addListener({
+//                Log.d(TAG, "Auto focus has completed")
+//            }, cameraExecutor)
+        } catch (e: CameraInfoUnavailableException) {
+            Log.d(TAG, "Cannot access camera " +
+                    "when configuring auto focus", e)
+        }
+    }
+
     private fun isDetectedInRange(detectedRect: Rect): Boolean {
         return inputOuterBoundary.contains(detectedRect) &&
                 !inputInnerBoundary.contains(detectedRect)
-    }
-
-    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
-        ContextCompat.checkSelfPermission(
-            baseContext, it) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun uploadFile(file: File) {
@@ -350,6 +380,11 @@ class MainActivity : AppCompatActivity() {
             }
             Log.d(TAG, "Response: $it")
         }
+    }
+
+    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
+        ContextCompat.checkSelfPermission(
+            baseContext, it) == PackageManager.PERMISSION_GRANTED
     }
 
     override fun onDestroy() {
