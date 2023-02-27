@@ -20,9 +20,12 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.camapp.databinding.ActivityMainBinding
 import com.example.camapp.file.FileService
-import com.example.camapp.file.FileServiceParams
-import com.google.common.util.concurrent.FutureCallback
-import com.google.common.util.concurrent.Futures
+import com.example.camapp.file.FileServiceParams.DEFAULT_KEY
+import com.example.camapp.file.FileServiceParams.DEFAULT_QUANT
+import com.example.camapp.file.FileServiceParams.DEFAULT_V
+import com.example.camapp.file.FileServiceParams.KEY
+import com.example.camapp.file.FileServiceParams.QUANT
+import com.example.camapp.file.FileServiceParams.V
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
@@ -30,13 +33,10 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
-import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
-import java.nio.ByteBuffer
-import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -201,20 +201,20 @@ class MainActivity : AppCompatActivity() {
                 // debug purpose
                 // locate barcode coordinates in view
                 val corners = barcodeResults[0].cornerPoints
-//                Log.d(TAG, "Barcode locations on screen:\n" +
-//                        "Top-left: (" +
-//                        "${corners?.get(0)?.x}, " +
-//                        "${corners?.get(0)?.y})\n" +
-//                        "Top-right: (" +
-//                        "${corners?.get(1)?.x}, " +
-//                        "${corners?.get(1)?.y})\n" +
-//                        "Bottom-left: (" +
-//                        "${corners?.get(3)?.x}, " +
-//                        "${corners?.get(3)?.y})\n" +
-//                        "Bottom-right: (" +
-//                        "${corners?.get(2)?.x}, " +
-//                        "${corners?.get(2)?.y})"
-//                )
+                Log.d(TAG, "Barcode locations on screen:\n" +
+                        "Top-left: (" +
+                        "${corners?.get(0)?.x}, " +
+                        "${corners?.get(0)?.y})\n" +
+                        "Top-right: (" +
+                        "${corners?.get(1)?.x}, " +
+                        "${corners?.get(1)?.y})\n" +
+                        "Bottom-left: (" +
+                        "${corners?.get(3)?.x}, " +
+                        "${corners?.get(3)?.y})\n" +
+                        "Bottom-right: (" +
+                        "${corners?.get(2)?.x}, " +
+                        "${corners?.get(2)?.y})"
+                )
 
                 val qrCodeViewModel = QrCodeViewModel(barcodeResults[0])
                 val qrCodeDrawable = QrCodeDrawable(qrCodeViewModel)
@@ -308,13 +308,16 @@ class MainActivity : AppCompatActivity() {
 
         // initialize form data
         val filePart = MultipartBody.Part.createFormData(
-            "image",
+            "file",
             file.name,
             file.asRequestBody("image/*".toMediaTypeOrNull())
         )
 
         // get default params settings
-        val params = FileServiceParams()
+        val params = HashMap<String, String>()
+        params[V] = DEFAULT_V
+        params[QUANT] = DEFAULT_QUANT
+        params[KEY] = DEFAULT_KEY
 
         val fileService = FileService()
 

@@ -7,12 +7,10 @@ import retrofit2.Call
 import retrofit2.Callback
 
 class FileService {
-    fun uploadFile(paramsValue: FileServiceParams, filePart: MultipartBody.Part, onResult: (Response?) -> Unit) {
+    fun uploadFile(params: Map<String, String>, filePart: MultipartBody.Part, onResult: (Response?) -> Unit) {
         val retrofit = ServiceBuilder.buildService(FileServiceInterface::class.java)
         retrofit.uploadFile(
-            paramsValue.version,
-            paramsValue.quantity,
-            paramsValue.key,
+            params,
             filePart
         ).enqueue(
             object : Callback<Response> {
