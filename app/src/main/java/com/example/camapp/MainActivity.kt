@@ -20,6 +20,9 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.camapp.databinding.ActivityMainBinding
 import com.example.camapp.file.FileService
+import com.example.camapp.file.FileServiceParams
+import com.google.common.util.concurrent.FutureCallback
+import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
@@ -27,10 +30,13 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.ByteBuffer
+import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -67,6 +73,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun takePhoto() {
+        Log.d(TAG, "Attempting to capture image...")
+
         // Get a stable reference of the modifiable camera controller
         val cameraController = cameraController
 
@@ -85,6 +93,7 @@ class MainActivity : AppCompatActivity() {
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     val cache = File(cacheDir.absolutePath + "/captured.png")
+                    Log.d(TAG,"Image captured: ${cacheDir.absolutePath}/captured.png")
                     try {
                         val stream = FileOutputStream(cache)
                         stream.write(result.toByteArray())
@@ -298,6 +307,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun uploadFile(file: File) {
+        Log.d(TAG, "Attempting to upload file...")
+
         // initialize form data
         val filePart = MultipartBody.Part.createFormData(
             "image",
@@ -305,13 +316,16 @@ class MainActivity : AppCompatActivity() {
             file.asRequestBody("image/*".toMediaTypeOrNull())
         )
 
+        // get default params settings
+        val params = FileServiceParams()
+
         val fileService = FileService()
 
-        fileService.uploadFile(filePart) {
+        fileService.uploadFile(params, filePart) {
             if (it != null) {
                 Toast.makeText(
                     applicationContext,
-                    it.message,
+                    "Score: ${it.score}",
                     Toast.LENGTH_LONG
                 ).show()
             }
