@@ -223,7 +223,8 @@ class MainActivity : AppCompatActivity() {
                     .setOnTouchListener { _, event ->
                         if (event.action == MotionEvent.ACTION_DOWN) {
                             startFocus(event) {
-                                Log.d(TAG, "Lambda function for testing is running!")
+                                Log.d(TAG, "Proceeding to image capture...")
+                                takePhoto()
                             }
                         }
                         true
@@ -285,14 +286,10 @@ class MainActivity : AppCompatActivity() {
                         disableAutoCancel()
                     }.build()
                 ) as ListenableFuture<FocusMeteringResult>
-//            autoFocusFuture.addListener({
-//                Log.d(TAG, "Auto focus has completed")
-//            }, cameraExecutor)
 
             // Set up focus listener
             autoFocusFuture.addListener({
                 Log.d(TAG, "Auto focus has completed")
-//                Log.d(TAG, "Proceeding to image capture...")
                 function()
             }, ContextCompat.getMainExecutor(this))
         } catch (e: CameraInfoUnavailableException) {
