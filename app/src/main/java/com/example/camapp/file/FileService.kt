@@ -7,11 +7,12 @@ import retrofit2.Call
 import retrofit2.Callback
 
 class FileService {
-    private val TAG = "FileService class"
-
-    fun uploadFile(filePart: MultipartBody.Part, onResult: (Response?) -> Unit) {
+    fun uploadFile(params: Map<String, String>, filePart: MultipartBody.Part, onResult: (Response?) -> Unit) {
         val retrofit = ServiceBuilder.buildService(FileServiceInterface::class.java)
-        retrofit.uploadFile(filePart).enqueue(
+        retrofit.uploadFile(
+            params,
+            filePart
+        ).enqueue(
             object : Callback<Response> {
                 override fun onResponse(
                     call: Call<Response>,
@@ -28,5 +29,9 @@ class FileService {
                 }
             }
         )
+    }
+
+    companion object {
+        private const val TAG = "FileService class"
     }
 }

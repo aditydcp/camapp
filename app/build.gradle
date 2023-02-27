@@ -42,6 +42,13 @@ dependencies {
     implementation 'com.google.android.material:material:1.8.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
 
+    // Guava for futures and listenable futures
+    implementation "com.google.guava:guava:31.0.1-android"
+    // To use CallbackToFutureAdapter
+    implementation "androidx.concurrent:concurrent-futures:1.1.0"
+    // Kotlin
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.6.0"
+
     // Camera X
     def camerax_version = "1.2.0-beta02"
     implementation "androidx.camera:camera-core:${camerax_version}"
@@ -51,6 +58,7 @@ dependencies {
 
     implementation "androidx.camera:camera-view:${camerax_version}"
     implementation "androidx.camera:camera-extensions:${camerax_version}"
+
     // Barcode Scanner
     implementation "androidx.camera:camera-mlkit-vision:${camerax_version}"
     implementation 'com.google.android.gms:play-services-mlkit-barcode-scanning:18.1.0'
@@ -62,6 +70,7 @@ dependencies {
     // OkHttp
     implementation "com.squareup.okhttp3:okhttp:4.9.0"
 
+    // Tests
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'

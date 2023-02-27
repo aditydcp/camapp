@@ -1,98 +1,55 @@
 package com.example.camapp
 
 import android.Manifest
-import android.content.ContentValues
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
-import android.provider.MediaStore
-import android.util.Base64.encodeToString
 import android.util.Log
 import android.view.MotionEvent
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
-import androidx.camera.core.ImageAnalysis.COORDINATE_SYSTEM_ORIGINAL
 import androidx.camera.core.ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
-import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.mlkit.vision.MlKitAnalyzer
-import androidx.camera.video.Recorder
-import androidx.camera.video.Recording
-import androidx.camera.video.VideoCapture
 import androidx.camera.view.CameraController.COORDINATE_SYSTEM_VIEW_REFERENCED
 import androidx.camera.view.LifecycleCameraController
+import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.example.camapp.QrCodeDrawable
-import com.example.camapp.QrCodeViewModel
-import com.example.camapp.message.Message
-import com.example.camapp.message.MessageService
 import com.example.camapp.databinding.ActivityMainBinding
 import com.example.camapp.file.FileService
+import com.example.camapp.file.FileServiceParams.DEFAULT_KEY
+import com.example.camapp.file.FileServiceParams.DEFAULT_QUANT
+import com.example.camapp.file.FileServiceParams.DEFAULT_V
+import com.example.camapp.file.FileServiceParams.KEY
+import com.example.camapp.file.FileServiceParams.QUANT
+import com.example.camapp.file.FileServiceParams.V
+import com.google.common.util.concurrent.ListenableFuture
 import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
-import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
-import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
-import java.nio.ByteBuffer
-import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-//typealias LumaListener = (luma: Double) -> Unit
-//typealias BarcodeListener = (found: Boolean) -> Unit
-
 class MainActivity : AppCompatActivity() {
     private lateinit var viewBinding: ActivityMainBinding
-
-    private var imageCapture: ImageCapture? = null
-
-//    private var videoCapture: VideoCapture<Recorder>? = null
-//    private var recording: Recording? = null
-
+    private lateinit var cameraController: LifecycleCameraController
     private lateinit var cameraExecutor: ExecutorService
-
     private lateinit var barcodeScanner: BarcodeScanner
-
-//    private class BarcodeAnalyzer(private val listener: BarcodeListener)
-//        : ImageAnalysis.Analyzer {
-//        constructor(
-//
-//        )
-//        override fun analyze(image: ImageProxy) {
-//            val result = scanner
-//        }
-//    }
-
-//    private class LuminosityAnalyzer(private val listener: LumaListener) : ImageAnalysis.Analyzer {
-//
-//        private fun ByteBuffer.toByteArray(): ByteArray {
-//            rewind()    // Rewind the buffer to zero
-//            val data = ByteArray(remaining())
-//            get(data)   // Copy the buffer into a byte array
-//            return data // Return the byte array
-//        }
-//
-//        override fun analyze(image: ImageProxy) {
-//
-//            val buffer = image.planes[0].buffer
-//            val data = buffer.toByteArray()
-//            val pixels = data.map { it.toInt() and 0xFF }
-//            val luma = pixels.average()
-//
-//            listener(luma)
-//
-//            image.close()
-//        }
-//    }
+    private lateinit var previewView: PreviewView
+    private lateinit var inputOuterBoundary: Rect
+    private lateinit var inputInnerBoundary: Rect
+    private lateinit var autoFocusFuture: ListenableFuture<FocusMeteringResult>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -116,50 +73,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun takePhoto() {
-        // Get a stable reference of the modifiable image capture use case
-        val imageCapture = imageCapture ?: return
+        Log.d(TAG, "Attempting to capture image...")
 
-        // Create time stamped name and MediaStore entry.
-        // This part is used to hold the image before saving to a named file
-//        val name = SimpleDateFormat(FILENAME_FORMAT, Locale.US)
-//            .format(System.currentTimeMillis())
-//        val contentValues = ContentValues().apply {
-//            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
-//            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-//            if(Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
-//                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/CameraX-Image")
-//            }
-//        }
+        // Get a stable reference of the modifiable camera controller
+        val cameraController = cameraController
 
-        // Create output options object which contains file + metadata
-//        val outputOptions = ImageCapture.OutputFileOptions
-//            .Builder(contentResolver,
-//                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-//                contentValues)
-//            .build()
-
-        // Set up image capture listener, which is triggered after photo has
-        // been taken
-//        imageCapture.takePicture(
-//            outputOptions,
-//            ContextCompat.getMainExecutor(this),
-//            object : ImageCapture.OnImageSavedCallback {
-//                override fun onError(exc: ImageCaptureException) {
-//                    Log.e(TAG, "Photo capture failed: ${exc.message}", exc)
-//                }
-//
-//                override fun
-//                        onImageSaved(output: ImageCapture.OutputFileResults){
-//                    val msg = "Photo capture succeeded: ${output.savedUri}"
-//                    Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
-//                    Log.d(TAG, msg)
-//                }
-//            }
-//        )
-
-        // referenced from here:
-        // https://stackoverflow.com/questions/71797696/convert-imageproxy-to-jpeg-or-png
-        // this approach seems to be promising
         // Setting up capture listener
         // have the image saved as ByteArrayOutputStream
         val result = ByteArrayOutputStream()
@@ -168,18 +86,19 @@ class MainActivity : AppCompatActivity() {
             .Builder(result)
             .build()
 
-        imageCapture.takePicture(
+        // invoke take picture use case
+        cameraController.takePicture(
             outputOptions,
             ContextCompat.getMainExecutor(this),
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     val cache = File(cacheDir.absolutePath + "/captured.png")
+                    Log.d(TAG,"Image captured: ${cacheDir.absolutePath}/captured.png")
                     try {
                         val stream = FileOutputStream(cache)
                         stream.write(result.toByteArray())
                         uploadFile(cache)
-                    }
-                    catch (exc: Exception) {
+                    } catch (exc: Exception) {
                         Log.e(TAG, "onImageSaved failed: ${exc.message}", exc)
                     }
                 }
@@ -189,30 +108,59 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         )
-
-//        imageCapture.takePicture(
-//            ContextCompat.getMainExecutor(this),
-//            object : ImageCapture.OnImageCapturedCallback() {
-//                override fun onError(exception: ImageCaptureException) {
-//                    Log.e(TAG, "Photo capture failed: ${exception.message}", exception)
-//                }
-//
-//                override fun onCaptureSuccess(image: ImageProxy) {
-//                    val msg = "Photo capture succeeded: ${image.imageInfo}"
-//                    Log.d(TAG, msg)
-//                    runOnUiThread {
-//                        viewBinding.imageCapturedView.setImageURI(image.)
-//                        Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
-//                    }
-//                }
-//            }
-//        )
     }
 
-//    private fun captureVideo() {}
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun startCamera() {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+        cameraController = LifecycleCameraController(baseContext)
+        previewView = viewBinding.viewFinder
+
+        // setup input zone boundaries
+//        val display = windowManager.defaultDisplay
+//        val displaySize = Point()
+//        display.getSize(displaySize)
+//        val boundaryDrawable = BoundaryDrawable(displaySize)
+//        viewBinding.viewFinder
+//            .overlay.add(boundaryDrawable)
+//        // Set up outer boundary equals to the input boundary in layout
+//        inputOuterBoundary = viewBinding.inputBoundary.clipBounds
+//
+//        // Set up inner boundary as an offset from outer boundary
+//        inputInnerBoundary = Rect().apply {
+//            this.set(inputOuterBoundary)
+//            this.inset(50,50)
+//        }
+//
+//        val outerBoundaryDrawable = BoundaryDrawable(inputOuterBoundary)
+//        val innerBoundaryDrawable = BoundaryDrawable(inputInnerBoundary)
+//        viewBinding.viewFinder
+//            .overlay.apply {
+//                this.add(outerBoundaryDrawable)
+//                this.add(innerBoundaryDrawable)
+//            }
+
+        viewBinding.inputBoundary.post {
+            // Set up outer boundary equals to the input boundary in layout
+            inputOuterBoundary = Rect(
+                viewBinding.inputBoundary.left,
+                viewBinding.inputBoundary.top,
+                viewBinding.inputBoundary.right,
+                viewBinding.inputBoundary.bottom
+            )
+
+            Log.d(TAG, "Input Boundary position:\n" +
+                    "Top: ${viewBinding.inputBoundary.top}\n" +
+                    "Left: ${viewBinding.inputBoundary.left}\n" +
+                    "Right: ${viewBinding.inputBoundary.right}\n" +
+                    "Bottom: ${viewBinding.inputBoundary.bottom}")
+
+            // Set up inner boundary as an offset from outer boundary
+            inputInnerBoundary = Rect().apply {
+                this.set(inputOuterBoundary)
+                this.inset(200,200)
+            }
+        }
 
         // setup Barcode Detector
         val barcodeScannerOptions = BarcodeScannerOptions.Builder()
@@ -220,214 +168,164 @@ class MainActivity : AppCompatActivity() {
             .build()
         barcodeScanner = BarcodeScanning.getClient(barcodeScannerOptions)
 
-        cameraProviderFuture.addListener({
-            // Used to bind the lifecycle of cameras to the lifecycle owner
-            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
-
-            // Used to bind the Image Analysis Analyzer to lifecycle owner
-            val cameraController = LifecycleCameraController(baseContext)
-
-            // Previewer
-            val preview = Preview.Builder()
-                .build()
-                .also {
-                    it.setSurfaceProvider(viewBinding.viewFinder.surfaceProvider)
-                }
-
-            // Image Captor
-            imageCapture = ImageCapture.Builder()
-                .build()
-
-            // Image Analyzer
-//            val imageAnalyzer = ImageAnalysis.Builder()
-//                .build()
-//                .also {
-//                    it.setAnalyzer(cameraExecutor, LuminosityAnalyzer { luma ->
-//                        Log.d(TAG, "Average luminosity: $luma")
-//
-//
-//                    })
-//                }
-
-//            val imageAnalyzer = ImageAnalysis.Builder()
-//                .setBackpressureStrategy(STRATEGY_KEEP_ONLY_LATEST)
-//                .build()
-//                .also {
-//                    it.setAnalyzer(
-//                        cameraExecutor,
-//                        MlKitAnalyzer(
-//                            listOf(barcodeScanner),
-//                            COORDINATE_SYSTEM_ORIGINAL,
-//                            cameraExecutor
-//                        ) { result: MlKitAnalyzer.Result? ->
-//                            val barcodeResults = result?.getValue(barcodeScanner)
-//                            if ((barcodeResults == null) ||
-//                                (barcodeResults.size == 0) ||
-//                                (barcodeResults.first() == null)
-//                            ) {
-//                                viewBinding.viewFinder.overlay.clear()
-//                                viewBinding.viewFinder.setOnTouchListener {
-//                                        _, _ -> false } //no-op
-//                                runOnUiThread {
-//                                    viewBinding.scanStatus.text =
-//                                        getString(R.string.scan_status_default)
-//                                }
-//                                return@MlKitAnalyzer
-//                            }
-//
-//                            val qrCodeViewModel = QrCodeViewModel(barcodeResults[0])
-//                            val qrCodeDrawable = QrCodeDrawable(qrCodeViewModel)
-//
-//                            viewBinding.viewFinder
-//                                .setOnTouchListener { v, event ->
-//                                    if (event.action == MotionEvent.ACTION_DOWN) {
-//                                        takePhoto()
-//                                    }
-//                                    true
-//                                }
-//
-//                            viewBinding.viewFinder
-//                                .overlay.clear()
-//                            viewBinding.viewFinder
-//                                .overlay.add(qrCodeDrawable)
-//
-//                            runOnUiThread {
-//                                viewBinding.scanStatus.text = getString(R.string.scan_status_ok)
-//                            }
-//                        }
-//                    )
-//                }
-
-            // Set image analysis analyzer to camera controller
-            cameraController.setImageAnalysisAnalyzer(
-                cameraExecutor,
-                MlKitAnalyzer(
-                    listOf(barcodeScanner),
-                    COORDINATE_SYSTEM_VIEW_REFERENCED,
-                    cameraExecutor
-                ) { result: MlKitAnalyzer.Result? ->
-                    val barcodeResults = result?.getValue(barcodeScanner)
-                    if ((barcodeResults == null) ||
-                        (barcodeResults.size == 0) ||
-                        (barcodeResults.first() == null)
-                    ) {
-                        viewBinding.viewFinder.overlay.clear()
-                        viewBinding.viewFinder.setOnTouchListener {
-                                _, _ -> false } //no-op
-                        runOnUiThread {
-                            viewBinding.scanStatus.text =
-                                getString(R.string.scan_status_default)
-                        }
-                        return@MlKitAnalyzer
-                    }
-
-                    val qrCodeViewModel = QrCodeViewModel(barcodeResults[0])
-                    val qrCodeDrawable = QrCodeDrawable(qrCodeViewModel)
-
+        // bind Image Analysis use case
+        cameraController.setImageAnalysisAnalyzer(
+            ContextCompat.getMainExecutor(this),
+            MlKitAnalyzer(
+                listOf(barcodeScanner),
+                COORDINATE_SYSTEM_VIEW_REFERENCED,
+                ContextCompat.getMainExecutor(this)
+            ) { result: MlKitAnalyzer.Result? ->
+                val barcodeResults = result?.getValue(barcodeScanner)
+                if ((barcodeResults == null) ||
+                    (barcodeResults.size == 0) ||
+                    (barcodeResults.first() == null)
+                ) {
+                    viewBinding.viewFinder.overlay.clear()
+//                    viewBinding.viewFinder.setOnTouchListener {
+//                            _, _ -> false } //no-op
                     viewBinding.viewFinder
-                        .setOnTouchListener { v, event ->
+                        .setOnTouchListener { _, event ->
                             if (event.action == MotionEvent.ACTION_DOWN) {
-                                takePhoto()
+                                startFocus(event)
                             }
                             true
                         }
+                    runOnUiThread {
+                        viewBinding.scanStatus.text =
+                            getString(R.string.scan_status_default)
+                    }
+                    return@MlKitAnalyzer
+                }
 
-                    viewBinding.viewFinder
-                        .overlay.clear()
-                    viewBinding.viewFinder
-                        .overlay.add(qrCodeDrawable)
+                // debug purpose
+                // locate barcode coordinates in view
+                val corners = barcodeResults[0].cornerPoints
+                Log.d(TAG, "Barcode locations on screen:\n" +
+                        "Top-left: (" +
+                        "${corners?.get(0)?.x}, " +
+                        "${corners?.get(0)?.y})\n" +
+                        "Top-right: (" +
+                        "${corners?.get(1)?.x}, " +
+                        "${corners?.get(1)?.y})\n" +
+                        "Bottom-left: (" +
+                        "${corners?.get(3)?.x}, " +
+                        "${corners?.get(3)?.y})\n" +
+                        "Bottom-right: (" +
+                        "${corners?.get(2)?.x}, " +
+                        "${corners?.get(2)?.y})"
+                )
 
+                val qrCodeViewModel = QrCodeViewModel(barcodeResults[0])
+                val qrCodeDrawable = QrCodeDrawable(qrCodeViewModel)
+
+                viewBinding.viewFinder
+                    .setOnTouchListener { _, event ->
+                        if (event.action == MotionEvent.ACTION_DOWN) {
+                            startFocus(event) {
+                                Log.d(TAG, "Proceeding to image capture...")
+                                takePhoto()
+                            }
+                        }
+                        true
+                    }
+
+                viewBinding.viewFinder
+                    .overlay.clear()
+                viewBinding.viewFinder
+                    .overlay.add(qrCodeDrawable)
+
+                val outerBoundaryDrawable = BoundaryDrawable(inputOuterBoundary)
+                val innerBoundaryDrawable = BoundaryDrawable(inputInnerBoundary)
+                viewBinding.viewFinder
+                    .overlay.apply {
+                        this.add(outerBoundaryDrawable)
+                        this.add(innerBoundaryDrawable)
+                    }
+
+                if (isDetectedInRange(barcodeResults[0].boundingBox!!)) {
                     runOnUiThread {
                         viewBinding.scanStatus.text = getString(R.string.scan_status_ok)
                     }
+                } else {
+                    runOnUiThread {
+                        viewBinding.scanStatus.text = getString(R.string.scan_status_out_of_bounds)
+                    }
                 }
+            }
+        )
+
+        cameraController.imageAnalysisBackpressureStrategy = STRATEGY_KEEP_ONLY_LATEST
+        cameraController.cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+        cameraController.unbind()
+        cameraController.bindToLifecycle(this)
+        previewView.controller = cameraController
+    }
+
+    private fun startFocus(event: MotionEvent,
+                           function: () -> Unit = {
+                              Log.d(TAG, "Default function of startFocus\n" +
+                                      "Pass in a function to run when focus is done.")
+                           }) {
+        val factory: MeteringPointFactory =
+            SurfaceOrientedMeteringPointFactory(
+                previewView.width.toFloat(),
+                previewView.height.toFloat()
             )
+        val autoFocusPoint = factory.createPoint(event.x, event.y)
+        try {
+            Log.d(TAG, "Attempting to auto focus...")
+            autoFocusFuture = cameraController
+                .cameraControl?.startFocusAndMetering(
+                    FocusMeteringAction.Builder(
+                        autoFocusPoint,
+                        FocusMeteringAction.FLAG_AF
+                    ).apply {
+                        //focus only when the user tap the preview
+                        disableAutoCancel()
+                    }.build()
+                ) as ListenableFuture<FocusMeteringResult>
 
-            // Select back camera as a default
-            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
-            try {
-                // Unbind use cases before rebinding
-                cameraProvider.unbindAll()
-
-                // Bind use cases to camera
-                cameraProvider.bindToLifecycle(
-                    this, cameraSelector,
-                    preview,
-                    imageCapture,
-//                    imageAnalyzer
-                )
-            } catch(exc: Exception) {
-                Log.e(TAG, "Use case binding failed", exc)
-            }
-
-            try {
-                cameraController.bindToLifecycle(this)
-                viewBinding.viewFinder.controller = cameraController
-            } catch (exc: Exception) {
-                Log.e(TAG, "Camera Controller binding failed", exc)
-            }
-
-        }, ContextCompat.getMainExecutor(this))
+            // Set up focus listener
+            autoFocusFuture.addListener({
+                Log.d(TAG, "Auto focus has completed")
+                function()
+            }, ContextCompat.getMainExecutor(this))
+        } catch (e: CameraInfoUnavailableException) {
+            Log.d(TAG, "Cannot access camera " +
+                    "when configuring auto focus", e)
+        }
     }
 
-    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
-        ContextCompat.checkSelfPermission(
-            baseContext, it) == PackageManager.PERMISSION_GRANTED
+    private fun isDetectedInRange(detectedRect: Rect): Boolean {
+        return inputOuterBoundary.contains(detectedRect) &&
+                !inputInnerBoundary.contains(detectedRect)
     }
-
-//    // send captured photo to server for validation
-//    private fun validateQrCode(file: File) {}
-//
-//    private fun sendMessage(file: File) {
-//        // covert the file into base64 string
-//        val base64String = encodeToString(
-//            file.readBytes(),
-//            android.util.Base64.NO_WRAP
-//        )
-//        val messageService = MessageService()
-//        val message = Message(
-//            message = null,
-//            content = base64String,
-//        )
-//        Log.d(TAG,"Request: $message")
-//        Log.d(TAG,"Attempting to upload...")
-//        messageService.sendMessage(message) {
-//            if (it != null) {
-//                Toast.makeText(
-//                    applicationContext,
-//                    it.message,
-//                    Toast.LENGTH_LONG
-//                ).show()
-//            }
-//            else {
-//                Toast.makeText(
-//                    applicationContext,
-//                    "No Acknowledgement",
-//                    Toast.LENGTH_LONG
-//                ).show()
-//            }
-//            Log.d(TAG, "Response: $it")
-//        }
-//    }
 
     private fun uploadFile(file: File) {
+        Log.d(TAG, "Attempting to upload file...")
+
         // initialize form data
-//        val name = SimpleDateFormat(FILENAME_FORMAT, Locale.US)
-//            .format(System.currentTimeMillis())
         val filePart = MultipartBody.Part.createFormData(
-            "image",
+            "file",
             file.name,
             file.asRequestBody("image/*".toMediaTypeOrNull())
         )
 
+        // get default params settings
+        val params = HashMap<String, String>()
+        params[V] = DEFAULT_V
+        params[QUANT] = DEFAULT_QUANT
+        params[KEY] = DEFAULT_KEY
+
         val fileService = FileService()
 
-        fileService.uploadFile(filePart) {
+        fileService.uploadFile(params, filePart) {
             if (it != null) {
                 Toast.makeText(
                     applicationContext,
-                    it.message,
+                    "Score: ${it.score}",
                     Toast.LENGTH_LONG
                 ).show()
             }
@@ -442,9 +340,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
+        ContextCompat.checkSelfPermission(
+            baseContext, it) == PackageManager.PERMISSION_GRANTED
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        cameraController.unbind()
         cameraExecutor.shutdown()
+        barcodeScanner.close()
     }
 
     override fun onRequestPermissionsResult(

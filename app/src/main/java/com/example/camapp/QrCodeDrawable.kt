@@ -14,55 +14,89 @@ import com.google.mlkit.vision.barcode.common.Barcode
 class QrCodeDrawable(qrCodeViewModel: QrCodeViewModel) : Drawable() {
     private val boundingRectPaint = Paint().apply {
         style = Paint.Style.STROKE
-        color = Color.RED
+        color = Color.YELLOW
         strokeWidth = 5F
         alpha = 200
     }
 
-    private val contentRectPaint = Paint().apply {
-        style = Paint.Style.FILL
-        color = Color.YELLOW
-        alpha = 255
+    private val edgesPaint = Paint().apply {
+        style = Paint.Style.STROKE
+        color = Color.RED
+        strokeWidth = 1F
+        alpha = 200
     }
 
-    private val contentTextPaint = Paint().apply {
-        color = Color.DKGRAY
-        alpha = 255
-        textSize = 36F
-    }
+//    private val contentRectPaint = Paint().apply {
+//        style = Paint.Style.FILL
+//        color = Color.YELLOW
+//        alpha = 255
+//    }
+//
+//    private val contentTextPaint = Paint().apply {
+//        color = Color.DKGRAY
+//        alpha = 255
+//        textSize = 36F
+//    }
 
     private val qrCodeViewModel = qrCodeViewModel
-    private val contentPadding = 25
-    private var textWidth = contentTextPaint.measureText(qrCodeViewModel.qrContent).toInt()
+//    private val contentPadding = 25
+//    private var textWidth = contentTextPaint.measureText(qrCodeViewModel.qrContent).toInt()
 
     override fun draw(canvas: Canvas) {
         canvas.drawRect(qrCodeViewModel.boundingRect, boundingRectPaint)
-        canvas.drawRect(
-            Rect(
-                qrCodeViewModel.boundingRect.left,
-                qrCodeViewModel.boundingRect.bottom + contentPadding/2,
-                qrCodeViewModel.boundingRect.left + textWidth + contentPadding*2,
-                qrCodeViewModel.boundingRect.bottom + contentTextPaint.textSize.toInt() + contentPadding),
-            contentRectPaint
+        canvas.drawPath(
+            Path().apply {
+                this.moveTo(
+                    qrCodeViewModel.corners[0].x.toFloat(),
+                    qrCodeViewModel.corners[0].y.toFloat()
+                )
+                this.lineTo(
+                    qrCodeViewModel.corners[1].x.toFloat(),
+                    qrCodeViewModel.corners[1].y.toFloat()
+                )
+                this.lineTo(
+                    qrCodeViewModel.corners[2].x.toFloat(),
+                    qrCodeViewModel.corners[2].y.toFloat()
+                )
+                this.lineTo(
+                    qrCodeViewModel.corners[3].x.toFloat(),
+                    qrCodeViewModel.corners[3].y.toFloat()
+                )
+                this.lineTo(
+                    qrCodeViewModel.corners[0].x.toFloat(),
+                    qrCodeViewModel.corners[0].y.toFloat()
+                )
+            },
+            edgesPaint
         )
-        canvas.drawText(
-            qrCodeViewModel.qrContent,
-            (qrCodeViewModel.boundingRect.left + contentPadding).toFloat(),
-            (qrCodeViewModel.boundingRect.bottom + contentPadding*2).toFloat(),
-            contentTextPaint
-        )
+//        canvas.drawRect(
+//            Rect(
+//                qrCodeViewModel.boundingRect.left,
+//                qrCodeViewModel.boundingRect.bottom + contentPadding/2,
+//                qrCodeViewModel.boundingRect.left + textWidth + contentPadding*2,
+//                qrCodeViewModel.boundingRect.bottom + contentTextPaint.textSize.toInt() + contentPadding),
+//            contentRectPaint
+//        )
+//        canvas.drawText(
+//            qrCodeViewModel.qrContent,
+//            (qrCodeViewModel.boundingRect.left + contentPadding).toFloat(),
+//            (qrCodeViewModel.boundingRect.bottom + contentPadding*2).toFloat(),
+//            contentTextPaint
+//        )
     }
 
     override fun setAlpha(alpha: Int) {
         boundingRectPaint.alpha = alpha
-        contentRectPaint.alpha = alpha
-        contentTextPaint.alpha = alpha
+        edgesPaint.alpha = alpha
+//        contentRectPaint.alpha = alpha
+//        contentTextPaint.alpha = alpha
     }
 
     override fun setColorFilter(colorFiter: ColorFilter?) {
-        boundingRectPaint.colorFilter = colorFilter
-        contentRectPaint.colorFilter = colorFilter
-        contentTextPaint.colorFilter = colorFilter
+        boundingRectPaint.colorFilter = colorFiter
+        edgesPaint.colorFilter = colorFiter
+//        contentRectPaint.colorFilter = colorFilter
+//        contentTextPaint.colorFilter = colorFilter
     }
 
     @Deprecated("Deprecated in Java")

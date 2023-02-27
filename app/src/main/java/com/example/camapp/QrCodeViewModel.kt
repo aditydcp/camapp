@@ -1,6 +1,7 @@
 package com.example.camapp
 
 import android.content.Intent
+import android.graphics.Point
 import android.graphics.Rect
 import android.net.Uri
 import android.view.MotionEvent
@@ -16,10 +17,11 @@ import com.google.mlkit.vision.barcode.common.Barcode
  */
 class QrCodeViewModel(barcode: Barcode) {
     var boundingRect: Rect = barcode.boundingBox!!
-    var qrContent: String = ""
+    var corners: Array<Point> = barcode.cornerPoints!!
+//    var qrContent: String = ""
 //    var qrCodeTouchCallback = { v: View, e: MotionEvent -> false} //no-op
 
-    init {
+//    init {
 //        when (barcode.valueType) {
 //            Barcode.TYPE_URL -> {
 //                qrContent = barcode.url!!.url!!
@@ -38,6 +40,5 @@ class QrCodeViewModel(barcode: Barcode) {
 //                qrContent = "Unsupported data type: ${barcode.rawValue.toString()}"
 //            }
 //        }
-        qrContent = "Content: ${barcode.rawValue.toString()}"
-    }
+//    }
 }
