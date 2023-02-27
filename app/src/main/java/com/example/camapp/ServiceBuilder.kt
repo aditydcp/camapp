@@ -8,7 +8,7 @@ object ServiceBuilder {
     private val client = OkHttpClient.Builder().build()
 
     private val retrofit = Retrofit.Builder()
-        .baseUrl("https://simple-backend-production.up.railway.app")
+        .baseUrl("http://149.129.233.132")
         .addConverterFactory(MoshiConverterFactory.create())
         .build()
 

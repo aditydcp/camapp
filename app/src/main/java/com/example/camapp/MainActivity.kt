@@ -32,6 +32,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.camapp.databinding.ActivityMainBinding
 import com.example.camapp.file.FileService
+import com.example.camapp.file.FileServiceParams
 import com.google.common.util.concurrent.FutureCallback
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -91,6 +92,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun takePhoto() {
+        Log.d(TAG, "Attempting to capture image...")
+
         // Get a stable reference of the modifiable camera controller
         val cameraController = cameraController
 
@@ -109,6 +112,7 @@ class MainActivity : AppCompatActivity() {
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     val cache = File(cacheDir.absolutePath + "/captured.png")
+                    Log.d(TAG,"Image captured: ${cacheDir.absolutePath}/captured.png")
                     try {
                         val stream = FileOutputStream(cache)
                         stream.write(result.toByteArray())
@@ -354,6 +358,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun uploadFile(file: File) {
+        Log.d(TAG, "Attempting to upload file...")
+
         // initialize form data
         val filePart = MultipartBody.Part.createFormData(
             "image",
@@ -361,13 +367,16 @@ class MainActivity : AppCompatActivity() {
             file.asRequestBody("image/*".toMediaTypeOrNull())
         )
 
+        // get default params settings
+        val params = FileServiceParams()
+
         val fileService = FileService()
 
-        fileService.uploadFile(filePart) {
+        fileService.uploadFile(params, filePart) {
             if (it != null) {
                 Toast.makeText(
                     applicationContext,
-                    it.message,
+                    "Score: ${it.score}",
                     Toast.LENGTH_LONG
                 ).show()
             }
