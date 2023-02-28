@@ -116,7 +116,7 @@ class MainActivity : AppCompatActivity() {
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     val msg = "Photo capture succeeded: ${output.savedUri}"
-                    Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
+//                    Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
                     Log.d(TAG, msg)
                     try {
                         val outputPath = PathDefiner.getRealPathFromURI(baseContext, output.savedUri!!)
@@ -364,20 +364,23 @@ class MainActivity : AppCompatActivity() {
         val fileService = FileService()
 
         fileService.uploadFile(params, filePart) {
+            var message: String? = null
             if (it != null) {
-                Toast.makeText(
-                    applicationContext,
-                    "Score: ${it.score}",
-                    Toast.LENGTH_LONG
-                ).show()
+                if (it.score != null) {
+                    message = "Score: ${it.score}"
+                }
+                else if (it.message != null) {
+                    message = it.message
+                }
             }
             else {
-                Toast.makeText(
-                    applicationContext,
-                    "No Acknowledgement",
-                    Toast.LENGTH_LONG
-                ).show()
+                message = "No Acknowledgement"
             }
+            Toast.makeText(
+                applicationContext,
+                message,
+                Toast.LENGTH_LONG
+            ).show()
             Log.d(TAG, "Response: $it")
         }
     }

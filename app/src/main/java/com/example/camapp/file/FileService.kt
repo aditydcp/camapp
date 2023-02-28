@@ -19,6 +19,7 @@ class FileService {
                     response: retrofit2.Response<Response>
                 ) {
                     Log.d(TAG, "Full response: $response")
+                    Log.d(TAG, "Response body: ${response.body()}")
                     val extractedResponse = response.body()
                     onResult(extractedResponse)
                 }
