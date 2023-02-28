@@ -2,10 +2,12 @@ package com.example.camapp
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import android.util.Log
 import android.view.MotionEvent
 import android.widget.Toast
@@ -18,6 +20,7 @@ import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.net.toFile
 import com.example.camapp.databinding.ActivityMainBinding
 import com.example.camapp.file.FileService
 import com.example.camapp.file.FileServiceParams.DEFAULT_KEY
@@ -37,6 +40,7 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -78,12 +82,31 @@ class MainActivity : AppCompatActivity() {
         // Get a stable reference of the modifiable camera controller
         val cameraController = cameraController
 
-        // Setting up capture listener
-        // have the image saved as ByteArrayOutputStream
-        val result = ByteArrayOutputStream()
+//        // Setting up capture listener
+//        // have the image saved as ByteArrayOutputStream
+//        val result = ByteArrayOutputStream()
+//
+//        val outputOptions = ImageCapture.OutputFileOptions
+//            .Builder(result)
+//            .build()
 
+        // Create time stamped name and MediaStore entry.
+        // This part is used to hold the image before saving to a named file
+        val name = SimpleDateFormat(FILENAME_FORMAT, Locale.US)
+            .format(System.currentTimeMillis())
+        val contentValues = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+            if(Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/CameraX-Image")
+            }
+        }
+
+        // Create output options object which contains file + metadata
         val outputOptions = ImageCapture.OutputFileOptions
-            .Builder(result)
+            .Builder(contentResolver,
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                contentValues)
             .build()
 
         // invoke take picture use case
@@ -92,15 +115,25 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.getMainExecutor(this),
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                    val cache = File(cacheDir.absolutePath + "/captured.png")
-                    Log.d(TAG,"Image captured: ${cacheDir.absolutePath}/captured.png")
+                    val msg = "Photo capture succeeded: ${output.savedUri}"
+                    Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
+                    Log.d(TAG, msg)
                     try {
-                        val stream = FileOutputStream(cache)
-                        stream.write(result.toByteArray())
-                        uploadFile(cache)
+                        uploadFile(output.savedUri!!.toFile())
                     } catch (exc: Exception) {
                         Log.e(TAG, "onImageSaved failed: ${exc.message}", exc)
                     }
+
+//                    val file = File(output.savedUri.)
+//                    val cache = File(cacheDir.absolutePath + "/captured.png")
+//                    Log.d(TAG,"Image captured: ${cacheDir.absolutePath}/captured.png")
+//                    try {
+//                        val stream = FileOutputStream(cache)
+//                        stream.write(result.toByteArray())
+//                        uploadFile(cache)
+//                    } catch (exc: Exception) {
+//                        Log.e(TAG, "onImageSaved failed: ${exc.message}", exc)
+//                    }
                 }
 
                 override fun onError(exc: ImageCaptureException) {
@@ -370,7 +403,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "MainActivity"
-//        private const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
+        private const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
         private const val REQUEST_CODE_PERMISSIONS = 10
         private val REQUIRED_PERMISSIONS =
             mutableListOf (
