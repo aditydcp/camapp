@@ -4,12 +4,18 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.graphics.Rect
+import android.media.MediaScannerConnection
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import android.view.MotionEvent
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
@@ -21,6 +27,7 @@ import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toFile
+import com.example.camapp.FileCreator.JPEG_FORMAT
 import com.example.camapp.databinding.ActivityMainBinding
 import com.example.camapp.file.FileService
 import com.example.camapp.file.FileServiceParams.DEFAULT_KEY
@@ -37,9 +44,7 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
-import java.io.ByteArrayOutputStream
-import java.io.File
-import java.io.FileOutputStream
+import java.io.*
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
@@ -103,10 +108,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Create output options object which contains file + metadata
+//        val outputOptions = ImageCapture.OutputFileOptions
+//            .Builder(contentResolver,
+//                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+//                contentValues)
+//            .build()
+
         val outputOptions = ImageCapture.OutputFileOptions
-            .Builder(contentResolver,
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                contentValues)
+            .Builder(FileCreator.createTempFile(JPEG_FORMAT))
             .build()
 
         // invoke take picture use case
@@ -118,14 +127,28 @@ class MainActivity : AppCompatActivity() {
                     val msg = "Photo capture succeeded: ${output.savedUri}"
 //                    Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
                     Log.d(TAG, msg)
-                    try {
-                        val outputPath = PathDefiner.getRealPathFromURI(baseContext, output.savedUri!!)
-                        Log.d(TAG, "Output file path: $outputPath")
-                        val outputFile = File(outputPath!!)
-                        uploadFile(outputFile)
-                    } catch (exc: Exception) {
-                        Log.e(TAG, "onImageSaved failed: ${exc.message}", exc)
-                    }
+
+                    val bitmap = BitmapFactory.decodeFile(
+                        PathDefiner.getRealPathFromURI(baseContext, output.savedUri!!)
+                    )
+//                    val rotatedBitmap = bitmap.rotate(90)
+                    val croppedImage = cropImage(
+//                        rotatedBitmap,
+                        bitmap,
+                        viewBinding.viewFinder,
+                        viewBinding.inputBoundary)
+                    val path = saveImage(croppedImage)
+                    uploadFile(path)
+
+//                    try {
+//                        val outputPath = PathDefiner.getRealPathFromURI(baseContext, output.savedUri!!)
+//                        Log.d(TAG, "Output file path: $outputPath")
+//                        val outputFile = File(outputPath!!)
+//                        uploadFile(outputFile)
+//                    } catch (exc: Exception) {
+//                        Log.e(TAG, "onImageSaved failed: ${exc.message}", exc)
+//                    }
+
 //                    contentResolver.query(output.savedUri!!, arrayOf(MediaStore.Images.Media.DATA), null, null, null)
 //                    try {
 //                        uploadFile(output.savedUri!!.toFile())
@@ -345,6 +368,100 @@ class MainActivity : AppCompatActivity() {
                 !inputInnerBoundary.contains(detectedRect)
     }
 
+    /**
+     * Crop a image taking a reference a view parent like a frame, and a view child like final
+     * reference
+     *
+     * @param bitmap image to crop
+     * @param frame where the image is set it
+     * @param reference frame to take reference for crop the image
+     * @return image already cropped
+     */
+    private fun cropImage(bitmap: Bitmap, frame: View, reference: View): ByteArray {
+        val heightOriginal = frame.height
+        val widthOriginal = frame.width
+        val heightFrame = reference.height
+        val widthFrame = reference.width
+        val leftFrame = reference.left
+        val topFrame = reference.top
+        val heightReal = bitmap.height
+        val widthReal = bitmap.width
+        val widthFinal = widthFrame * widthReal / widthOriginal
+        val heightFinal = heightFrame * heightReal / heightOriginal
+        val leftFinal = leftFrame * widthReal / widthOriginal
+        val topFinal = topFrame * heightReal / heightOriginal
+        val bitmapFinal = Bitmap.createBitmap(
+            bitmap,
+            leftFinal, topFinal, widthFinal, heightFinal
+        )
+        val stream = ByteArrayOutputStream()
+        bitmapFinal.compress(
+            Bitmap.CompressFormat.JPEG,
+            100,
+            stream
+        ) //100 is the best quality possible
+        return stream.toByteArray()
+    }
+
+    // Save the image cropped, return a File object
+    private fun saveImage(bytes: ByteArray) : File {
+        val outStream: FileOutputStream
+        val fileName = "KTP" + System.currentTimeMillis() + ".jpg"
+        val directoryName = File(
+            Environment.getExternalStorageDirectory().toString() + IMAGE_DIRECTORY)
+        val file = File(directoryName, fileName)
+
+        if (!directoryName.exists()) {
+            directoryName.mkdirs()
+        }
+
+        try {
+            file.createNewFile()
+            outStream = FileOutputStream(file)
+            outStream.write(bytes)
+            MediaScannerConnection.scanFile(
+                baseContext,
+                arrayOf(file.path),
+                arrayOf("image/jpeg"), null
+            )
+            outStream.close()
+        } catch (e: FileNotFoundException) {
+            e.printStackTrace()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+
+        return file
+    }
+
+    // Rotate the image from Landscape to Portrait
+    private fun Bitmap.rotate(degree:Int):Bitmap{
+        // Initialize a new matrix
+        val matrix = Matrix()
+
+        // Rotate the bitmap
+        matrix.postRotate(degree.toFloat())
+
+        // Resize the bitmap
+        val scaledBitmap = Bitmap.createScaledBitmap(
+            this,
+            width,
+            height,
+            true
+        )
+
+        // Create and return the rotated bitmap
+        return Bitmap.createBitmap(
+            scaledBitmap,
+            0,
+            0,
+            scaledBitmap.width,
+            scaledBitmap.height,
+            matrix,
+            true
+        )
+    }
+
     private fun uploadFile(file: File) {
         Log.d(TAG, "Attempting to upload file...")
 
@@ -416,6 +533,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
+        private const val IMAGE_DIRECTORY = "/CustomImage"
         private const val REQUEST_CODE_PERMISSIONS = 10
         private val REQUIRED_PERMISSIONS =
             mutableListOf (
